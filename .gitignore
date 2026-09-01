@@ -1,0 +1,38 @@
+# Данные (НЕ коммитить!)
+scripts/arr.js
+arrays/.env
+Массивы/.env
+
+# Зависимости
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Сборка
+build/
+dist/
+*.exe
+*.spec
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+npm-debug.log*
+
+# Временные файлы
+*.tmp
+*.temp
+
+# Секреты (авто-генерация)
+scripts/tokens.json
