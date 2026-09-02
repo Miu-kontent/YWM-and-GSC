@@ -1,2 +1,8 @@
 .opencode/
 AGENTS.md
+DEVELOPMENT_PLAN.md
+.venv/
+node_modules/
+yandex/config.json
+google/config.json
+google/.env

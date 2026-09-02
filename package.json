@@ -1,0 +1,22 @@
+{
+  "name": "ywm-and-gsc",
+  "version": "1.0.0",
+  "description": "Automation scripts for Yandex Webmaster and Google Search Console",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "yandex",
+    "webmaster",
+    "google",
+    "search-console",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^22.0.0",
+    "googleapis": "^133.0.0"
+  }
+}

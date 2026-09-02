@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YWM-and-GSC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+        <p id="loader-status">Проверка обновлений...</p>
+        <div id="loader-logs" class="logs-container"></div>
+        <div id="update-modal" class="modal-box hidden">
+            <h3>Доступно обновление!</h3>
+            <p>Текущая: <strong id="local-ver"></strong> → Новая: <strong id="remote-ver"></strong></p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="skipUpdate()">Продолжить в текущей</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="header">
+        <h1>YWM-and-GSC</h1>
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">🏠 Главная</button>
+            <button class="nav-tab" data-tab="yandex" onclick="switchTab('yandex')">🌏 Яндекс</button>
+            <button class="nav-tab" data-tab="google" onclick="switchTab('google')">🔍 Google</button>
+        </nav>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему">🌙</button>
+    </header>
+
+    <main class="container">
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="service-cards">
+                <div class="service-card yandex" onclick="switchTab('yandex')">
+                    <div class="service-icon">🌏</div>
+                    <h2>Яндекс.Вебмастер</h2>
+                    <p>Автоматизация верификации, регионов, Метрики, Sitemap, переобхода</p>
+                </div>
+                <div class="service-card google" onclick="switchTab('google')">
+                    <div class="service-icon">🔍</div>
+                    <h2>Google Search Console</h2>
+                    <p>Добавление сайтов, верификация, Sitemap, удаление через API и UI</p>
+                </div>
+            </div>
+            <div class="global-keys">
+                <h3>🔐 Общие ключи доступа</h3>
+                <div class="keys-grid">
+                    <div class="key-block yandex">
+                        <h4>Яндекс</h4>
+                        <div class="input-row">
+                            <label>OAuth Token</label>
+                            <input type="password" id="yandex_oauth_token" placeholder="y0_AgAAA...">
+                        </div>
+                        <div class="input-row">
+                            <label>User ID</label>
+                            <input type="text" id="yandex_user_id" placeholder="123456789">
+                        </div>
+                        <div class="input-row">
+                            <label>Metric Counter ID</label>
+                            <input type="text" id="yandex_metric_id" placeholder="12345678">
+                        </div>
+                        <div class="input-row">
+                            <label>Contact Path</label>
+                            <input type="text" id="yandex_contact_path" value="contacts">
+                        </div>
+                        <button class="btn btn-small" onclick="launchBrowser('yandex')">🌐 Запустить браузер (порт 9229)</button>
+                    </div>
+                    <div class="key-block google">
+                        <h4>Google</h4>
+                        <div class="input-row">
+                            <label>Client ID</label>
+                            <input type="text" id="google_client_id" placeholder="xxx.apps.googleusercontent.com">
+                        </div>
+                        <div class="input-row">
+                            <label>Client Secret</label>
+                            <input type="password" id="google_client_secret" placeholder="GOCSPX-...">
+                        </div>
+                        <div class="input-row">
+                            <label>Access Token</label>
+                            <input type="password" id="google_access_token" placeholder="ya29.a0A...">
+                        </div>
+                        <div class="input-row">
+                            <label>Refresh Token</label>
+                            <input type="password" id="google_refresh_token" placeholder="1//...">
+                        </div>
+                        <div class="input-row">
+                            <label>Auth Code</label>
+                            <input type="text" id="google_auth_code" placeholder="4/0A... (одноразовый)">
+                        </div>
+                        <button class="btn btn-small" onclick="launchBrowser('google')">🌐 Запустить браузер (порт 9227)</button>
+                    </div>
+                </div>
+                <div class="button-wrapper">
+                    <button class="btn btn-primary" onclick="saveGlobalKeys()">💾 Сохранить все ключи</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-yandex" class="tab-content hidden">
+            <div class="page-header">
+                <h2>🌏 Яндекс.Вебмастер</h2>
+                <button class="btn btn-small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
+            </div>
+            <div class="keys-summary yandex" id="yandex-keys-summary"></div>
+            <div class="scripts-panel" id="yandex-scripts"></div>
+        </section>
+
+        <section id="tab-google" class="tab-content hidden">
+            <div class="page-header">
+                <h2>🔍 Google Search Console</h2>
+                <button class="btn btn-small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
+            </div>
+            <div class="keys-summary google" id="google-keys-summary"></div>
+            <div class="scripts-panel" id="google-scripts"></div>
+        </section>
+    </main>
+
+    <script src="/eel.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
