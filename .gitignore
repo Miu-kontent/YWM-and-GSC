@@ -1,8 +1,11 @@
-.opencode/
-AGENTS.md
-DEVELOPMENT_PLAN.md
 .venv/
-node_modules/
 yandex/config.json
 google/config.json
 google/.env
+DEVELOPMENT_PLAN.md
+AGENTS.md
+.opencode/
+# Playwright
+playwright-report/
+test-results/
+*.trace.zip

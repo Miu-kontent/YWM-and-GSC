@@ -7,15 +7,22 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Экран загрузки -->
     <div id="loader" class="loader-overlay">
         <div class="spinner"></div>
-        <p id="loader-status">Проверка обновлений...</p>
+        <p id="loader-status">Загрузка приложения...</p>
+        <!-- Контейнер для вывода логов -->
         <div id="loader-logs" class="logs-container"></div>
-        <div id="update-modal" class="modal-box hidden">
-            <h3>Доступно обновление!</h3>
-            <p>Текущая: <strong id="local-ver"></strong> → Новая: <strong id="remote-ver"></strong></p>
-            <div class="modal-actions">
-                <button class="btn btn-primary" onclick="skipUpdate()">Продолжить в текущей</button>
+    </div>
+
+    <!-- Диалог обновления -->
+    <div id="version-overlay" class="hidden">
+        <div class="version-dialog">
+            <h2>🆕 Новая версия доступна</h2>
+            <p>Версия <strong id="remote-ver"></strong> доступна на сервере.<br>Текущая версия: <strong id="local-ver"></strong></p>
+            <div class="version-buttons">
+                <button id="btn-update" onclick="doUpdate()">Обновить</button>
+                <button id="btn-skip" onclick="skipUpdate()">Пропустить</button>
             </div>
         </div>
     </div>
@@ -117,7 +124,6 @@
         </section>
     </main>
 
-    <script src="/eel.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

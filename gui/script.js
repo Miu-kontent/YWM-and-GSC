@@ -1,10 +1,58 @@
 let currentTab = 'dashboard';
 let runningScripts = {};
 
-document.addEventListener('DOMContentLoaded', async () => {
-    applySavedTheme();
-    await initApp();
-});
+// Вспомогательная функция ожидания загрузки элементов страницы (DOM)
+function onDOMReady(callback) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', callback);
+    } else {
+        callback();
+    }
+}
+
+window.addEventListener('pywebviewready', () => {
+    onDOMReady(async () => {
+        try {
+            // 0. Сначала инициализируем настройки (тему), чтобы интерфейс не "моргал"
+            await applySavedTheme();
+
+            // 1. Показываем подготовленное окно
+            const loaderStatus = document.getElementById('loader-status');
+            const loader = document.getElementById('loader');
+            const updateModal = document.getElementById('update-modal');
+
+            if (loaderStatus) loaderStatus.innerText = "Проверка обновлений...";
+
+            // 2. Запрос проверки версий в Python API
+            const updateCheck = await window.pywebview.api.check_updates();
+
+            const verLabel = document.getElementById('launcher-version');
+            if (verLabel) verLabel.innerText = `v${updateCheck.local_version}`;
+
+            // 3. Проверяем наличие новой версии лаунчера
+            if (updateCheck.success) {
+                if (updateCheck.update_available) {
+                    document.getElementById('local-ver').textContent = updateCheck.local_version;
+                    document.getElementById('remote-ver').textContent = updateCheck.remote_version;
+                    updateModal.classList.remove('hidden');
+                    addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
+                } else {
+                    addLoaderLog(`✅ Версия актуальна (${updateCheck.local_version})`);
+                    setTimeout(() => { loader.classList.add('hidden'); }, 500);
+                }
+            } else {
+                addLoaderLog(`⚠️ Не удалось проверить обновления (error_code: ${updateCheck.error_code})`);
+                setTimeout(() => { loader.classList.add('hidden'); }, 500);
+            }
+        } catch (err) {
+            addLoaderLog(`⚠️ Не удалось проверить обновления: ${err.message}`);
+            setTimeout(() => { loader.classList.add('hidden'); }, 500);
+        }
+
+            // await loadGlobalKeys();
+            // await loadScriptsLists();       
+    })
+})
 
 function applySavedTheme() {
     const theme = localStorage.getItem('theme') || 'dark';
@@ -23,44 +71,14 @@ function updateThemeIcon() {
     if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️' : '🌙';
 }
 
-async function initApp() {
-    const loaderStatus = document.getElementById('loader-status');
-    const loaderLogs = document.getElementById('loader-logs');
-    const loader = document.getElementById('loader');
-    const updateModal = document.getElementById('update-modal');
-
-    try {
-        addLoaderLog('Проверка обновлений...');
-        const result = await eel.check_updates()();
-
-        if (result.success && result.update_available) {
-            document.getElementById('local-ver').textContent = result.local_version;
-            document.getElementById('remote-ver').textContent = result.remote_version;
-            updateModal.classList.remove('hidden');
-            addLoaderLog(`⚠️ Доступна версия ${result.remote_version}`);
-        } else {
-            addLoaderLog(`✅ Версия актуальна (${result.local_version})`);
-        }
-    } catch (err) {
-        addLoaderLog(`⚠️ Не удалось проверить обновления: ${err.message}`);
-    }
-
-    await loadGlobalKeys();
-    await loadScriptsLists();
-
-    setTimeout(() => {
-        loader.classList.add('hidden');
-    }, 500);
-}
-
 function addLoaderLog(msg) {
-    const el = document.getElementById('loader-logs');
-    if (el) {
+    const logBox = document.getElementById('loader-logs');
+    if (logBox) {
         const line = document.createElement('div');
         line.className = 'log-line info';
         line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        el.appendChild(line);
-        el.scrollTop = el.scrollHeight;
+        logBox.appendChild(line);
+        logBox.scrollTop = logBox.scrollHeight;
     }
 }
 
@@ -80,8 +98,8 @@ function switchTab(tabName) {
 async function loadGlobalKeys() {
     try {
         const [yandexCfg, googleCfg] = await Promise.all([
-            eel.get_config('yandex')(),
-            eel.get_config('google')()
+            window.pywebview.api.get_config('yandex'),
+            window.pywebview.api.get_config('google')
         ]);
 
         setInputValue('yandex_oauth_token', yandexCfg.oauth_token);
@@ -120,8 +138,8 @@ async function saveGlobalKeys() {
     };
 
     const [yRes, gRes] = await Promise.all([
-        eel.save_config('yandex', yandexData)(),
-        eel.save_config('google', googleData)()
+        window.pywebview.api.save_config('yandex', yandexData),
+        window.pywebview.api.save_config('google', googleData)
     ]);
 
     if (yRes.success && gRes.success) {
@@ -142,7 +160,7 @@ async function launchBrowser(service) {
     btn.disabled = true;
     btn.textContent = '⏳ Запуск...';
     try {
-        const res = await eel.launch_browser(service)();
+        const res = await window.pywebview.api.launch_browser(service);
         showToast(res.message, res.success ? 'success' : 'error');
     } catch (err) {
         showToast(`Ошибка: ${err.message}`, 'error');
@@ -154,8 +172,8 @@ async function launchBrowser(service) {
 
 async function loadKeysSummary() {
     const [yandexCfg, googleCfg] = await Promise.all([
-        eel.get_config('yandex')(),
-        eel.get_config('google')()
+        window.pywebview.api.get_config('yandex'),
+        window.pywebview.api.get_config('google')
     ]);
 
     renderKeysSummary('yandex-keys-summary', 'yandex', yandexCfg);
@@ -184,8 +202,8 @@ function maskValue(val) {
 async function loadScriptsLists() {
     try {
         const [yRes, gRes] = await Promise.all([
-            eel.get_scripts_list('yandex')(),
-            eel.get_scripts_list('google')()
+            window.pywebview.api.get_scripts_list('yandex'),
+            window.pywebview.api.get_scripts_list('google')
         ]);
 
         renderScriptsPanel('yandex', yRes.scripts || []);
@@ -285,7 +303,7 @@ async function saveScriptData(service, script) {
         }
     });
 
-    const res = await eel.save_script_data(service, script, data)();
+    const res = await window.pywebview.api.save_script_data(service, script, data);
     if (res.success) {
         localStorage.setItem(`script_data_${scriptId}`, JSON.stringify(data));
         showToast('Данные скрипта сохранены');
@@ -311,8 +329,8 @@ async function runScript(service, script) {
     reportEl.classList.add('hidden');
 
     try {
-        await eel.save_script_data(service, script, getScriptInputs(scriptId))();
-        const res = await eel.run_script(service, script)();
+        await window.pywebview.api.save_script_data(service, script, getScriptInputs(scriptId));
+        const res = await window.pywebview.api.run_script(service, script);
         if (!res.success) throw new Error(res.message);
         statusEl.textContent = 'Выполняется...';
         statusEl.style.color = 'var(--accent-yandex)';
@@ -341,6 +359,7 @@ function getScriptInputs(scriptId) {
     return data;
 }
 
+// Called from Python via evaluate_js
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
     const logsEl = document.getElementById(`${scriptId}-logs`);

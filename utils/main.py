@@ -29,10 +29,6 @@ class Api:
 
         self.running_processes = {}
 
-    def show_window(self):
-        if webview.windows:
-            webview.windows[0].show()
-
     def get_local_version(self):
         if os.path.exists(self.version_path):
             try:
@@ -43,23 +39,27 @@ class Api:
         return "1.0.0"
 
     def check_updates(self):
+        """Сравнение локальных версий с удаленным репозиторием на GitHub"""
         local_ver = self.get_local_version()
         try:
-            cache_buster = f"?nocache={int(time.time())}"
+            cache_buster = f"{self.remote_version_url}?nocache={int(time.time())}"
             headers = {"Cache-Control": "no-cache"}
-            response = requests.get(self.remote_version_url + cache_buster, headers=headers, timeout=5)
+            response = requests.get(cache_buster, headers=headers, timeout=5)
+            print(f"[API] Update check response: {response.status_code}")
             if response.status_code == 200:
                 remote_ver = response.json().get("version", "1.0.0")
                 def parse(v): return [int(x) for x in v.split('.')]
-                return {
+                result = {
                     "success": True,
                     "update_available": parse(remote_ver) > parse(local_ver),
                     "local_version": local_ver,
                     "remote_version": remote_ver
                 }
+                return result
+            else:
+                return {"success": False, "update_available": True, "local_version": local_ver, "error_code": response.status_code}
         except Exception as e:
-            print(f"[API] Ошибка проверки обновлений: {e}")
-        return {"success": False, "local_version": local_ver}
+            return {"success": False, "update_available": False, "local_version": local_ver, "error_code": e}
 
     def get_config(self, service):
         path = self.yandex_config_path if service == "yandex" else self.google_config_path
@@ -243,9 +243,10 @@ def main():
         js_api=api,
         width=1200,
         height=800,
-        min_size=(1000, 600),
-        background_color='#121214',
-        hidden=True
+        frameless=False,    # Убирает стандартную рамку ОС, заголовки и кнопки «закрыть/свернуть» (полезно для создания кастомных уникальных дизайнов).
+        on_top=False,       # Фиксирует окно поверх всех остальных окон в системе.
+        min_size=(800, 600),
+        background_color='#121214'
     )
 
     webview.start(debug=False)
