@@ -1,6 +1,6 @@
 # YWM-and-GSC — Яндекс Вебмастер и Google Search Console
 
-Автоматизация рутинных задач в **Яндекс.Вебмастере** и **Google Search Console** через Puppeteer и Google API.
+Автоматизация рутинных задач в **Яндекс.Вебмастере** и **Google Search Console** через Puppeteer (UI-автоматизация) и Google API / Яндекс API.
 
 > 🇷🇺 **Язык проекта:** русский. Коммиты, документация и диалоги — на русском.
 
@@ -12,44 +12,128 @@
 
 | Категория | Скрипты | Описание |
 |-----------|---------|----------|
-| **Яндекс — Подтверждение прав** | `yandex_verify.js` | Умная верификация: пробует META_TAG, потом HTML_FILE. Авто-ретраи, понятные ошибки (401/403/404/429). |
+| **Яндекс — Подтверждение прав** | `yandex_verify.js` | Умная верификация: META_TAG → HTML_FILE. Авто-ретраи, понятные ошибки. |
 | **Яндекс — Регионы** | `addRegions.js` | Массовое добавление регионов поддоменам. Берёт город из `city[]`, контакт из `contactPath`. |
-| **Яндекс — Метрика** | `metrika_bind.js` | Привязка поддоменов к счётчику Яндекс.Метрики. Ищет фреймы, скроллит, кликает «Привязать к Вебмастеру». |
+| **Яндекс — Метрика** | `metrika_bind.js` | Привязка поддоменов к счётчику Яндекс.Метрики. |
 | **Яндекс — Обход по счётчикам** | `addMetrics.js` | Включает «Обход по счётчикам» в настройках индексирования. |
 | **Яндекс — Sitemap** | `sitemap.py` | Добавление sitemap через Яндекс API (OAuth). |
 | **Яндекс — Переобход** | `reindex.js`, `recrawl.js` | Переобход страниц / перезапрос sitemap. |
 | **Яндекс — Проверки** | `Regi.js`, `metriks.js`, `recomen.js`, `errors.js` | Проверка региона, обхода счётчиков, рекомендаций, ошибок. |
 | **Яндекс — Удаление** | `yandex_sites_to_delete.js` | Удаление поддоменов из Яндекс.Вебмастера. |
 | **Google — Добавление сайтов** | `gsc_add_sites.js` | Массовое добавление поддоменов в GSC через Google API (OAuth2). Ретраи при квоте. |
-| **Google — Верификация** | `gsc_verify.js` | Умная верификация: ANALYTICS → META → FILE. Проверяет наличие GA кода на сайте. Авто-очистка AUTH_CODE. |
+| **Google — Верификация** | `gsc_verify.js` | Умная верификация: ANALYTICS → META → FILE. Проверяет наличие GA кода на сайте. Авто-очистка auth_code. |
 | **Google — Sitemap** | `gsc_add_sitemap.js` | Добавление sitemap в GSC. |
-| **Google — Удаление** | `gsc_delete_sites.js`, `gsc_delete_unverified.js` | Удаление сайтов / удаление **неподтверждённых** сайтов из GSC (через Puppeteer в UI). |
+| **Google — Удаление (UI)** | `gsc_delete_sites.js`, `gsc_delete_unverified.js` | Удаление сайтов / удаление **неподтверждённых** сайтов из GSC (Puppeteer, порт 9227). |
 | **Утилиты** | `userid.js` | Получение `user_id` по OAuth-токену для Яндекс API. |
 
 ---
 
-## 🏗 Архитектура
+## 🏗 Архитектура (актуальная на 2026-09-04)
 
 ```
 YWM-and-GSC/
-├── launcher.py          # GUI-лаунчер (CustomTkinter) — запуск браузеров и скриптов
-├── data_editor.py       # Окно редактирования данных (arr.js + .env) с вкладками
-├── package.json         # Зависимости: googleapis, puppeteer
-├── requirements.txt     # Python-зависимости (для sitemap.py)
-├── scripts/             # JavaScript/Python скрипты (копируются из dist/Скрипты)
-├── arrays/              # Данные: arr.js (поддомены, города, токены) + .env (Google OAuth)
-├── dist/                # Скомпилированные .exe (PyInstaller)
-└── build/               # Временные файлы сборки
+├── yandex/                     # Модуль Яндекс.Вебмастера
+│   ├── scripts/                # JS скрипты автоматизации (13 файлов)
+│   │   ├── yandex_verify.js
+│   │   ├── addRegions.js
+│   │   ├── metrika_bind.js
+│   │   ├── addMetrics.js
+│   │   ├── sitemap.py
+│   │   ├── reindex.js
+│   │   ├── recrawl.js
+│   │   ├── Regi.js
+│   │   ├── metriks.js
+│   │   ├── recomen.js
+│   │   ├── errors.js
+│   │   ├── yandex_sites_to_delete.js
+│   │   └── userid.js
+│   ├── config.json             # Токены Яндекс (OAuth, User ID, Metric ID, Sitemap, Contact Path)
+│   ├── array_<script>.js       # Изолированные массивы для каждого скрипта
+│   └── loadConfig.js           # Загрузчик конфигов
+├── google/                     # Модуль Google Search Console
+│   ├── scripts/                # JS скрипты автоматизации (6 файлов)
+│   │   ├── gsc_add_sites.js
+│   │   ├── gsc_verify.js
+│   │   ├── gsc_add_sitemap.js
+│   │   ├── gsc_delete_sites.js
+│   │   ├── gsc_delete_unverified.js
+│   │   └── loadGoogleConfig.js # Хелпер загрузки google/config.json
+│   ├── config.json             # Ключи Google (Client ID, Secret, Tokens, Sitemap Path, Main Resource, Redirect URI)
+│   ├── array_<script>.js       # Изолированные массивы для каждого скрипта
+│   └── loadConfig.js           # Загрузчик массивов
+├── gui/                        # Веб-интерфейс (pywebview)
+│   ├── index.html              # Разметка (Splash, вкладки, формы, логи, таблицы)
+│   ├── style.css               # Стили (тёмная/светлая тема, CSS-переменные, универсальные компоненты)
+│   └── script.js               # Клиентская логика (вкладки, запуск, стриминг логов, отчёты)
+├── utils/                      # Точка входа и служебные файлы
+│   ├── main.py                 # Python ядро (pywebview, Api, subprocess, логи, авто-обновления)
+│   └── version.json            # Версия для авто-обновлений
+├── .venv/                      # Виртуальное окружение Python (в корне)
+├── node_modules/               # Зависимости Node.js (в корне)
+├── package.json                # npm deps: puppeteer, googleapis
+├── requirements.txt            # Python deps: pywebview, requests, python-dotenv
+├── README.md                   # Этот файл
+├── AGENTS.md                   # Контекст для AI-ассистентов
+├── DEVELOPMENT_PLAN.md         # План разработки (не в git)
+├── .gitignore
+└── .opencode/
+    └── memory/
+        └── dialogue.md         # История диалогов
 ```
 
-### 🔐 Хранение данных
+---
 
-| Файл | Назначение | Пример содержимого |
-|------|------------|-------------------|
-| `scripts/arr.js` | **Яндекс + общие данные** — поддомены (`links`), города (`city`), `metricCounterId`, `yandexSettings` (oauth_token, user_id, sitemap_name), `yandex_sites_to_delete`, `gsc_subdomains`, `gsc_sitemap_path`, `gsc_sites_to_delete` | `const links = ["sub.domain.ru"];` |
-| `arrays/.env` | **Google OAuth** — `CLIENT_ID`, `CLIENT_SECRET`, `ACCESS_TOKEN`, `REDIRECT_URI`, `AUTH_CODE` (одноразовый) | `CLIENT_ID=xxx.apps.googleusercontent.com` |
+## 🔐 Хранение данных и конфигурация
 
-> ⚠️ **Важно:** `arr.js` и `.env` **не коммитятся** в git (добавьте в `.gitignore`). Хранятся локально.
+### Изоляция по сервисам
+Каждый сервис имеет **свой** `config.json` и **свои** `array_<script>.js`:
+
+| Путь | Содержимое |
+|------|------------|
+| `yandex/config.json` | `oauth_token`, `user_id`, `metricCounterId`, `contactPath`, `sitemap_path` |
+| `google/config.json` | `client_id`, `client_secret`, `access_token`, `refresh_token`, `auth_code`, `redirect_uri`, `sitemap_path`, `main_resource` |
+| `yandex/array_<script>.js` | Данные только для конкретного Яндекс-скрипта |
+| `google/array_<script>.js` | Данные только для конкретного Google-скрипта |
+
+### Принципы
+- **Никакого общего `arr.js`** — каждый скрипт получает только нужные ему поля
+- **Секреты не в гите** — все `config.json` и `array_*.js` в `.gitignore`
+- **GUI генерирует массивы** — при запуске скрипта `utils/main.py` создаёт актуальные `array_<script>.js` из сохранённых данных
+
+### Пример `yandex/config.json`
+```json
+{
+  "oauth_token": "y0_AgAAA...",
+  "user_id": "123456789",
+  "metricCounterId": "12345678",
+  "contactPath": "contacts",
+  "sitemap_path": "/sitemap.xml",
+  "scripts_data": {
+    "yandex_verify": { "links": ["sub.domain.ru"] },
+    "addRegions": { "links": ["sub.domain.ru"], "city": ["Москва"] }
+  }
+}
+```
+
+### Пример `google/config.json`
+```json
+{
+  "client_id": "xxx.apps.googleusercontent.com",
+  "client_secret": "GOCSPX-...",
+  "access_token": "ya29.a0A...",
+  "refresh_token": "1//...",
+  "auth_code": "",
+  "redirect_uri": "http://localhost:3000/",
+  "sitemap_path": "/sitemap/",
+  "main_resource": "https://medcentr-cristall.ru/",
+  "scripts_data": {
+    "gsc_add_sites": { "gsc_subdomains": ["https://sub.domain.ru/"] },
+    "gsc_verify": { "gsc_subdomains": ["https://sub.domain.ru/"] }
+  }
+}
+```
+
+> ⚠️ **Важно:** `yandex/config.json`, `google/config.json`, `yandex/array_*.js`, `google/array_*.js` — в `.gitignore`. Хранятся локально.
 
 ---
 
@@ -58,136 +142,50 @@ YWM-and-GSC/
 ### 1. Установка зависимостей
 
 ```bash
-# Node.js скрипты
-npm install
-
-# Python (для sitemap.py)
-pip install -r requirements.txt
-```
-
-### 2. Подготовка данных
-
-Создайте папки и файлы:
-
-```
-YWM-and-GSC/
-├── scripts/
-│   └── arr.js          # ← скопируйте из старого проекта или создайте по шаблону
-└── arrays/
-    └── .env            # ← создайте из шаблона ниже
-```
-
-**Шаблон `scripts/arr.js`:**
-```javascript
-const contactPath = "contacts";
-
-const links = [
-    "sub1.domain.ru",
-    "sub2.domain.ru"
-];
-
-const city = [
-    "Москва",
-    "Санкт-Петербург"
-];
-
-const metricCounterId = "12345678";
-
-const yandexSettings = {
-    oauth_token: "y0_AgAAA...",
-    user_id: "123456789",
-    sitemap_name: "/sitemap.xml"
-};
-
-const yandex_sites_to_delete = [
-    "https://old-sub.domain.ru/"
-];
-
-const gsc_subdomains = [
-    "https://sub1.domain.ru/",
-    "https://sub2.domain.ru/"
-];
-
-const gsc_sitemap_path = "/sitemap.xml";
-
-const gsc_sites_to_delete = [
-    "https://old-sub.domain.ru/"
-];
-
-const turboPages = [];
-
-module.exports = { 
-    links, city, contactPath, turboPages, yandexSettings,
-    yandex_sites_to_delete, gsc_subdomains, gsc_sitemap_path,
-    gsc_sites_to_delete, metricCounterId 
-};
-```
-
-**Шаблон `arrays/.env`:**
-```env
-CLIENT_ID=xxx.apps.googleusercontent.com
-CLIENT_SECRET=GOCSPX-xxx
-ACCESS_TOKEN=ya29.a0A...
-REDIRECT_URI=http://localhost:3000/
-AUTH_CODE=4/0A...   # одноразовый, очищается после использования
-```
-
-### 3. Запуск браузеров (обязательно перед скриптами)
-
-Запустите лаунчер:
-```bash
-python launcher.py
-```
-
-И нажмите:
-1. **🌏 Яндекс (порт 9229)** — откроется Chrome с профилем для Яндекса. Авторизуйтесь в Вебмастере и Метрике. **Не закрывайте окно.**
-2. **🔍 Google (порт 9227)** — откроется Chrome с профилем для Google. Авторизуйтесь в Search Console. **Не закрывайте окно.**
-
-### 4. Запуск скриптов
-
-Через лаунчер (GUI) — просто нажмите на нужный скрипт.
-
-Или вручную:
-```bash
-# Яндекс скрипты (порт 9229)
-node scripts/yandex_verify.js
-node scripts/addRegions.js
-node scripts/metrika_bind.js
-# ...
-
-# Google API скрипты (требуют .env)
-node scripts/gsc_add_sites.js
-node scripts/gsc_verify.js
-node scripts/gsc_add_sitemap.js
-
-# Google UI скрипты (порт 9227, Puppeteer)
-node scripts/gsc_delete_sites.js
-node scripts/gsc_delete_unverified.js
-
 # Python
-python scripts/sitemap.py
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+
+# Node.js
+npm install
 ```
+
+### 2. Запуск приложения
+
+```bash
+# Из виртуального окружения
+python utils\main.py
+```
+
+### 3. Работа в интерфейсе
+
+1. **Splash Screen** — авто-проверка обновлений с GitHub
+2. **Главная (Дашборд)** — выбор сервиса (Яндекс/Google), ввод общих токенов
+3. **Страница Яндекс / Google** — верхний блок ключей сервиса, выбор скрипта, ввод поддоменов под конкретный скрипт, кнопка «Запустить»
+4. **Параллельный запуск** — Яндекс и Google скрипты могут работать одновременно (subprocess)
+5. **Вывод результатов** — консоль в реальном времени + итоговая таблица с копированием
 
 ---
 
-## 🖥 Лаунчер (GUI)
+## 🖥 GUI (pywebview) — основные элементы
 
-`launcher.py` — главное окно управления:
-- Запуск браузеров с правильными портами и профилями
-- Кнопка **«✏️ Внести свои данные»** — открывает `data_editor.py`
-- Список всех скриптов с цветовой индикацией:
-  - 🟨 **Жёлтые** — Яндекс
-  - 🔴 **Красные** — Google
-  - 🐍 **Python** — значок змейки
-- Кнопка **«🔄 ОБНОВИТЬ ВСЁ»** — пересканирует папки
-- Каждый скрипт запускается в **отдельном окне** с выводом логов (копировать/сохранить/очистить)
+### Вкладки
+- **🏠 Главная** — дашборд с карточками сервисов, единая форма ключей доступа
+- **🌏 Яндекс** — ключи Яндекса (сводка), список скриптов с полями ввода
+- **🔍 Google** — ключи Google (сводка), список скриптов с полями ввода
 
-`data_editor.py` — редактор данных с вкладками:
-- **Яндекс** — links, city, metricCounterId, contactPath, yandexSettings, yandex_sites_to_delete
-- **Google** — gsc_subdomains, gsc_sitemap_path, gsc_sites_to_delete
-- **Google API** — CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN, REDIRECT_URI, AUTH_CODE
-- Кнопки **«💾 Сохранить Яндекс»** и **«💾 Сохранить Google»** — сохраняют раздельно, не затирая чужие данные
-- Кнопка **«🔄 Получить user_id»** — запускает `userid.js` с токеном из поля ввода
+### Универсальные компоненты (CSS)
+- **Grid** — `.grid`, `.grid--responsive`, `.grid--2-cols`
+- **Card** — `.card`, `.card--interactive`, `.card__header`, `.card__body`, `.card__icon`
+- **Button** — `.btn`, `.btn--primary`, `.btn--secondary`, `.btn--small`, `.btn--icon`
+- **Form** — `.form-group`, `.form-label`, `.form-control` (input, textarea)
+- **Nav** — `.nav`, `.nav__item` (горизонтальная/вертикальная)
+- **Table** — `.table-wrapper`, `.table`
+- **Logs** — `.logs-container`, `.log-line` (цвета: success/error/warning/info)
+
+### Темы
+- Тёмная (по умолчанию) / Светлая — переключение кнопкой в хедере, сохранение в `localStorage`
 
 ---
 
@@ -195,65 +193,89 @@ python scripts/sitemap.py
 
 ### Яндекс (Puppeteer, порт 9229)
 
-| Скрипт | Входные данные | Что делает |
-|--------|----------------|------------|
-| `yandex_verify.js` | `arr.js` → `links`, `yandexSettings` | Верификация сайтов: META_TAG → HTML_FILE. Отчёт: новые / уже было / ошибки. |
-| `addRegions.js` | `arr.js` → `links`, `city`, `contactPath` | Для каждого поддомена добавляет регион в Вебмастере. |
-| `metrika_bind.js` | `arr.js` → `metricCounterId` | Привязывает все доступные поддомены к счётчику Метрики. |
-| `addMetrics.js` | `arr.js` → `links`, `yandexSettings` | Включает «Обход по счётчикам» в настройках индексирования. |
-| `sitemap.py` | `arr.js` → `links`, `yandexSettings` | Добавляет sitemap через Яндекс API (OAuth). |
-| `reindex.js` | `arr.js` → `links` | Запускает переобход страниц. |
-| `recrawl.js` | `arr.js` → `links`, `yandexSettings` | Перезапрашивает sitemap. |
-| `Regi.js` | `arr.js` → `links` | Проверяет установленный регион. |
-| `metriks.js` | `arr.js` → `links`, `metricCounterId` | Проверяет, включён ли обход по счётчикам. |
-| `recomen.js` | `arr.js` → `links` | Проверяет рекомендации Вебмастера. |
-| `errors.js` | `arr.js` → `links` | Проверяет ошибки индексирования. |
-| `yandex_sites_to_delete.js` | `arr.js` → `yandex_sites_to_delete` | Удаляет указанные сайты из Вебмастера. |
-| `userid.js` | `arr.js` → `yandexSettings.oauth_token` | Получает `user_id` по токену (для заполнения `arr.js`). |
+| Скрипт | Поля в `array_<script>.js` | Назначение |
+|--------|----------------------------|------------|
+| `yandex_verify.js` | `links`, `yandexSettings` | Верификация: META_TAG → HTML_FILE. Отчёт: новые/уже было/ошибки |
+| `addRegions.js` | `links`, `city`, `contactPath` | Массовое добавление регионов |
+| `metrika_bind.js` | `metricCounterId` | Привязка поддоменов к счётчику Метрики |
+| `addMetrics.js` | `links`, `yandexSettings` | Включение «Обход по счётчикам» |
+| `sitemap.py` | `links`, `yandexSettings` | Sitemap через Яндекс API (OAuth) |
+| `reindex.js` | `links` | Переобход страниц |
+| `recrawl.js` | `links`, `yandexSettings` | Перезапрос sitemap |
+| `Regi.js` | `links` | Проверка региона |
+| `metriks.js` | `links`, `metricCounterId` | Проверка обхода счётчиков |
+| `recomen.js` | `links` | Проверка рекомендаций |
+| `errors.js` | `links` | Проверка ошибок |
+| `yandex_sites_to_delete.js` | `yandex_sites_to_delete` | Удаление сайтов из Вебмастера |
+| `userid.js` | `yandexSettings.oauth_token` | Получение `user_id` по токену |
 
-### Google API (требуют `.env`)
+### Google API (используют `google/config.json`)
 
-| Скрипт | Входные данные | Что делает |
-|--------|----------------|------------|
-| `gsc_add_sites.js` | `.env` + `arr.js` → `gsc_subdomains` | Массовое добавление сайтов в GSC. Ретраи при квоте (3 попытки по 30 сек). |
-| `gsc_verify.js` | `.env` + `arr.js` → `gsc_subdomains` | Верификация: проверяет GA код → ANALYTICS → META → FILE. Авто-очищает AUTH_CODE. |
-| `gsc_add_sitemap.js` | `.env` + `arr.js` → `gsc_subdomains`, `gsc_sitemap_path` | Добавляет sitemap для каждого поддомена. |
+| Скрипт | Поля в `array_<script>.js` | Назначение |
+|--------|----------------------------|------------|
+| `gsc_add_sites.js` | `gsc_subdomains` | Массовое добавление в GSC. Ретраи при квоте (3×30 сек) |
+| `gsc_verify.js` | `gsc_subdomains` | Умная верификация: проверяет GA код → ANALYTICS → META → FILE. Авто-очищает auth_code |
+| `gsc_add_sitemap.js` | `gsc_subdomains`, `gsc_sitemap_path` | Добавление sitemap для каждого поддомена |
 
 ### Google UI (Puppeteer, порт 9227)
 
-| Скрипт | Входные данные | Что делает |
-|--------|----------------|------------|
-| `gsc_delete_sites.js` | `.env` + `arr.js` → `gsc_sites_to_delete` | Удаляет конкретные сайты из GSC через UI. |
-| `gsc_delete_unverified.js` | `.env` + `arr.js` → `gsc_sites_to_delete` | Удаляет **только неподтверждённые** сайты. Требует `GSC_MAIN_RESOURCE` в `.env`. |
+| Скрипт | Поля в `array_<script>.js` | Назначение |
+|--------|----------------------------|------------|
+| `gsc_delete_sites.js` | `gsc_sites_to_delete` | Удаление конкретных сайтов через UI |
+| `gsc_delete_unverified.js` | `gsc_sites_to_delete` | Удаление **только неподтверждённых** сайтов. Требует `main_resource` в конфиге |
 
 ---
 
-## 🔧 Типичные проблемы и решения
+## ⚙️ Ключевые решения и ограничения
 
-| Проблема | Причина | Решение |
-|----------|---------|---------|
-| `❌ Node.js не найден` | Node не установлен | `winget install OpenJS.NodeJS` или скачайте с nodejs.org |
-| `❌ Файл arr.js не найден` | Неправильный путь | Проверьте: `scripts/arr.js` относительно места запуска скрипта |
-| `❌ OAuth-токен неверен / 401` | Токен истёк | Получите новый на https://oauth.yandex.ru/ или в data_editor |
-| `❌ Достигнут лимит сайтов в GSC` | > 1000 сайтов на аккаунт | Удалите неиспользуемые (`gsc_delete_sites.js`) или используйте другой аккаунт |
-| `❌ AUTH_CODE недействителен` | Код одноразовый / истёк | Получите новый: запустите `gsc_verify.js` без AUTH_CODE → получите ссылку → вставьте код в `.env` |
-| `❌ Браузер не подключается (порт 9229/9227)` | Браузер не запущен / закрыт | Нажмите кнопку запуска браузера в лаунчере, авторизуйтесь, **не закрывайте** |
-| `❌ Кнопка не найдена (Puppeteer)` | UI Яндекс/Google изменился | Селекторы в скрипте устарели — нужно обновить под новый UI |
-| `❌ Превышен лимит запросов (429)` | Слишком много запросов | Скрипты имеют задержки (500мс–3с), просто подождите |
+| Проблема | Решение |
+|----------|---------|
+| Секреты в коде | Изолированные `config.json` в папках сервисов + `.gitignore` |
+| UI Яндекс/Google меняется | Селекторы в Puppeteer могут устареть — обновление под новый UI |
+| Лимиты API | Ретраи: 500мс (Яндекс), 3сек (Google API), 30сек при квоте |
+| Авторизация Google | `gsc_verify.js` генерирует ссылку для auth_code, после использования очищает конфиг |
+| Два браузера одновременно | Разные порты (9229/9227) и профили |
+| Изоляция данных скриптов | Каждый скрипт имеет свой `array_<script>.js` |
+
+---
+
+## 🔒 Безопасность
+
+- **Никогда** не коммитьте `yandex/config.json`, `yandex/array_*.js`, `google/config.json`, `google/array_*.js`!
+- Все секреты исключены через `.gitignore`.
+- При создании issue/PR уберите чувствительные данные.
+
+---
+
+## 🔮 Планы развития (миграция на Python + Playwright)
+
+> **Статус:** принято решение, в процессе планирования (см. `DEVELOPMENT_PLAN.md`)
+
+| Этап | Описание | Срок |
+|------|----------|------|
+| **1. Пилот** | Переписать `metrika_bind.js` + `yandex_verify.js` на Python + Playwright. Создать базовые утилиты: `browser.py`, `selectors.py`, `stealth.py` | 2–3 дня |
+| **2. Общие утилиты** | Вынести логику ретраев, логирования, работы с конфигами в `yandex/utils/` | 2 дня |
+| **3. Пакетная миграция** | По 2–3 скрипта в день: Regions → Metrics → Sitemap → Checks → Delete | 5–7 дней |
+| **4. Google API** | Переписать `gsc_add_sites`, `gsc_verify`, `gsc_add_sitemap` на Python + googleapis | 2 дня |
+| **5. Google UI** | Playwright вместо Puppeteer для `gsc_delete_*` | 2 дня |
+| **6. Очистка** | Удалить `node_modules/`, `package.json`, все `.js` скрипты, обновить `requirements.txt` | 1 день |
+
+**Anti-detect стратегия:**
+- Базовый stealth init script → `playwright-stealth` при необходимости → Camoufox/Nodriver fallback
+
+**Сборка .exe** — планируется отдельно после стабилизации (PyInstaller / Nuitka).
 
 ---
 
 ## 📁 История изменений / Лог диалогов
 
-> Этот раздел ведётся вручную. Добавляйте записи при значимых изменениях.
-
 | Дата | Что сделано | Детали |
 |------|-------------|--------|
-| 2026-09-01 | **Инициализация репозитория** | Создан README, подключён GitHub, настроен git. Перенесены скрипты из старого проекта `C:\Users\haritonov.vs\Desktop\Скрипты\ЯВ&GSC`. |
-| 2026-08-20 | Добавлен `yandex_sites_to_delete` | В `arr.js` и `data_editor.py` добавлено поле для удаления сайтов из Яндекс.Вебмастера. |
-| 2026-08-19 | `metrika_bind.js` v2 | Переписан поиск фреймов: теперь сканирует все фреймы, ищет `.counter-mirrors-list-item`, кликает только не привязанные. |
-| 2026-08-12 | `recomen.js` | Добавлена проверка рекомендаций Яндекса. |
-| 2026-08-06 | Базовая структура | Созданы `launcher.py`, `data_editor.py`, основные скрипты для Яндекс и Google. |
+| 2026-09-04 | **Рефакторинг GUI** | Универсальные компоненты (Grid, Card, Button, Form, Nav, Table), новая цветовая схема, центрирование заголовков, debug=False |
+| 2026-09-04 | **Объединение Google конфигов** | `config.json` + `.env` → один `google/config.json`, удалён `.env`, обновлены все 5 скриптов, `loadGoogleConfig.js` |
+| 2026-09-02 | **Полный рефакторинг архитектуры** | pywebview + веб-интерфейс, изоляция Яндекс/Google модулей, изолированные массивы для каждого скрипта, `utils/main.py` ядро |
+| 2026-09-02 | **Миграция на Playwright (решено)** | Полный отказ от Node.js/Puppeteer в пользу Python + Playwright, удалены node_modules, package.json |
+| 2026-09-01 | **Инициализация репозитория** | Создан GitHub репо, README, AGENTS.md, .gitignore, перенесены скрипты из старого проекта |
 
 ---
 
@@ -263,7 +285,9 @@ python scripts/sitemap.py
 - [Google Search Console API](https://developers.google.com/search-console)
 - [Google Site Verification API](https://developers.google.com/site-verification)
 - [Puppeteer документация](https://pptr.dev/)
+- [Playwright документация](https://playwright.dev/python/)
 - [googleapis npm](https://www.npmjs.com/package/googleapis)
+- [pywebview](https://pywebview.flowrl.com/)
 
 ---
 
