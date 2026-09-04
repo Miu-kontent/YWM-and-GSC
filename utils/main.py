@@ -23,7 +23,7 @@ class Api:
         self.utils_dir = os.path.join(self.base_dir, "utils")
         self.version_path = os.path.join(self.utils_dir, "version.json")
         self.remote_version_url = "https://raw.githubusercontent.com/Miu-kontent/YWM-and-GSC/main/utils/version.json"
-        self.repo_zip_url = "https://github.com/Miu-kontent/YWM-and-GSC/zipball/main.zip"
+        self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main.zip"
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
         self.google_env_path = os.path.join(self.google_dir, ".env")
@@ -46,7 +46,6 @@ class Api:
             cache_buster = f"{self.remote_version_url}?nocache={int(time.time())}"
             headers = {"Cache-Control": "no-cache"}
             response = requests.get(cache_buster, headers=headers, timeout=5)
-            print(f"[API] Update check response: {response.status_code}")
             if response.status_code == 200:
                 remote_ver = response.json().get("version", "1.0.0")
                 def parse(v): return [int(x) for x in v.split('.')]
