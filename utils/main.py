@@ -273,7 +273,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(debug=False)
+    webview.start(debug=True)
 
 
 if __name__ == "__main__":
