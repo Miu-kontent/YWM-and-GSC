@@ -23,7 +23,7 @@ class Api:
         self.utils_dir = os.path.join(self.base_dir, "utils")
         self.version_path = os.path.join(self.utils_dir, "version.json")
         self.remote_version_url = "https://raw.githubusercontent.com/Miu-kontent/YWM-and-GSC/main/utils/version.json"
-        self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main.zip"
+        self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
         self.google_env_path = os.path.join(self.google_dir, ".env")
