@@ -77,7 +77,7 @@ body {
 /* --- Базовые контейнеры и секции --- */
 .container { padding: 24px; max-width: 1400px; margin: 0 auto; }
 .section { margin-bottom: 32px; }
-.section__title { margin-bottom: 20px; font-size: 1.2rem; color: var(--text-main); }
+.section__title { margin-bottom: 20px; font-size: 1.2rem; color: var(--text-main); text-align: center; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
 
 /* --- Сетки (Grids) --- */
@@ -95,14 +95,14 @@ body {
 }
 .card--interactive { cursor: pointer; }
 .card--interactive:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.card__header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; }
+.card__header { display: flex; align-items: center; gap: 2%; margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; justify-content: center;}
 .card__icon { font-size: 2rem; }
 .card__body { color: var(--text-muted); font-size: 14px; }
 
 /* --- Кнопки (Buttons) --- */
 .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 10px 20px; border: none; border-radius: 8px;
+    padding: 10px 15px; border: none; border-radius: 8px;
     font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
 }
 .btn--primary { background: var(--btn-bg); color: var(--btn-text); }
@@ -110,7 +110,7 @@ body {
 .btn--secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
 .btn--secondary:hover { border-color: var(--accent); }
 .btn--small { padding: 8px 16px; font-size: 13px; }
-.btn--icon { width: 40px; height: 40px; padding: 0; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); font-size: 18px; }
+.btn--icon { width: 20%; padding: 0; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); font-size: 1.5rem; }
 .btn--icon:hover { border-color: var(--accent); }
 
 /* --- Формы и Инпуты (Forms) --- */
@@ -156,7 +156,7 @@ textarea.form-control { min-height: 100px; resize: vertical; font-family: monosp
     padding: 16px 24px; background: var(--bg-card);
     border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100;
 }
-.header h1 { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+.header h1 { width: 20%; font-size: 1.5rem; font-weight: 600; color: var(--accent); }
 
 /* Сводка ключей */
 .keys-summary { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px; margin-bottom: 20px; }
