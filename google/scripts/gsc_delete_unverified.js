@@ -3,38 +3,16 @@
 // =============================================================================
 
 const { loadConfig } = require('./loadConfig');
+const { loadGoogleConfig } = require('./loadGoogleConfig');
+
 const config = loadConfig('gsc_delete_unverified');
 if (!config) process.exit(1);
 
+const googleConfig = loadGoogleConfig();
+if (!googleConfig) process.exit(1);
+
 const { gsc_sites_to_delete } = config;
 const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
-
-// =============================================================================
-// 1. ЗАГРУЗКА .env
-// =============================================================================
-
-function loadEnvFromArrays() {
-    const envPath = path.join(__dirname, '..', '.env');
-    if (!fs.existsSync(envPath)) {
-        console.log('❌ Файл .env не найден!');
-        return false;
-    }
-
-    console.log(`✅ Найден файл .env: ${envPath}`);
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    const envLines = envContent.split('\n');
-
-    for (const line of envLines) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-            const [key, value] = trimmed.split('=');
-            if (key && value) process.env[key] = value;
-        }
-    }
-    return true;
-}
 
 // =============================================================================
 // 3. НОРМАЛИЗАЦИЯ URL
@@ -158,18 +136,13 @@ async function main() {
     console.log('🗑️  УДАЛЕНИЕ ПОДДОМЕНОВ ИЗ GOOGLE SEARCH CONSOLE');
     console.log('='.repeat(70) + '\n');
 
-    if (!loadEnvFromArrays()) {
-        console.log('❌ Не удалось загрузить .env');
-        return;
-    }
-
     const sitesToDelete = gsc_sites_to_delete || [];
     if (sitesToDelete.length === 0) {
         console.log('❌ Нет сайтов для удаления!');
         return;
     }
 
-    const mainResource = process.env.GSC_MAIN_RESOURCE || 'https://medcentr-cristall.ru/';
+    const mainResource = googleConfig.main_resource || 'https://medcentr-cristall.ru/';
     console.log(`📍 Основной ресурс: ${mainResource}\n`);
 
     const browserURL = 'http://localhost:9227';

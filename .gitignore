@@ -1,7 +1,6 @@
 .venv/
 yandex/config.json
 google/config.json
-google/.env
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/

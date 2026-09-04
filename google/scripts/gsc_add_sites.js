@@ -3,8 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 const { loadConfig } = require('./loadConfig');
+const { loadGoogleConfig } = require('./loadGoogleConfig');
+
 const config = loadConfig('gsc_add_sites');
 if (!config) process.exit(1);
+
+const googleConfig = loadGoogleConfig();
+if (!googleConfig) process.exit(1);
 
 const { gsc_subdomains } = config;
 const { google } = require('googleapis');
@@ -23,7 +28,7 @@ function explainError(errorMsg, siteUrl) {
     if (errorMsg.includes('invalid authentication credentials') || errorMsg.includes('OAuth 2 access token')) {
         return {
             short: `❌ ${siteUrl}: Проблема с токеном доступа`,
-            solution: `🔧 РЕШЕНИЕ: Получите новый ACCESS_TOKEN в .env (файл в папке Массивы)`
+            solution: `🔧 РЕШЕНИЕ: Получите новый ACCESS_TOKEN в google/config.json`
         };
     }
     
@@ -62,51 +67,20 @@ function explainError(errorMsg, siteUrl) {
     // Общая ошибка
     return {
         short: `❌ ${siteUrl}: ${errorMsg.substring(0, 80)}`,
-        solution: `🔧 РЕШЕНИЕ: Проверьте подключение к интернету и правильность данных в .env`
+        solution: `🔧 РЕШЕНИЕ: Проверьте подключение к интернету и правильность данных в google/config.json`
     };
-}
-
-// ЧТЕНИЕ .env ФАЙЛА - теперь .env генерируется в google/.env
-function loadEnvFromArrays() {
-    try {
-        const envPath = path.join(__dirname, '..', '.env');
-        if (!fs.existsSync(envPath)) {
-            console.log('❌ Файл .env не найден!');
-            return false;
-        }
-        
-        console.log(`✅ Найден файл .env: ${envPath}`);
-        
-        const envContent = fs.readFileSync(envPath, 'utf8');
-        const envLines = envContent.split('\n');
-        
-        for (const line of envLines) {
-            const trimmed = line.trim();
-            if (trimmed && !trimmed.startsWith('#')) {
-                const [key, value] = trimmed.split('=');
-                if (key && value) {
-                    process.env[key] = value;
-                }
-            }
-        }
-        
-        return true;
-    } catch (error) {
-        console.log(`❌ Ошибка чтения .env: ${error.message}`);
-        return false;
-    }
 }
 
 // АВТОРИЗАЦИЯ GOOGLE
 function getAuthClient() {
     const oauth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.REDIRECT_URI
+        googleConfig.client_id,
+        googleConfig.client_secret,
+        googleConfig.redirect_uri
     );
     
     oauth2Client.setCredentials({
-        access_token: process.env.ACCESS_TOKEN,
+        access_token: googleConfig.access_token,
     });
     
     return oauth2Client;
@@ -154,13 +128,9 @@ async function main() {
     console.log('='.repeat(70));
     console.log();
     
-    if (!loadEnvFromArrays()) {
-        return;
-    }
-    
-    if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET || !process.env.ACCESS_TOKEN) {
-        console.log('❌ ОТСУТСТВУЮТ ДАННЫЕ В .env');
-        console.log('   Добавьте: CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN');
+    if (!googleConfig.client_id || !googleConfig.client_secret || !googleConfig.access_token) {
+        console.log('❌ ОТСУТСТВУЮТ ДАННЫЕ В google/config.json');
+        console.log('   Добавьте: client_id, client_secret, access_token');
         return;
     }
     

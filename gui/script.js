@@ -142,6 +142,9 @@ async function loadGlobalKeys() {
         setInputValue('google_access_token', googleCfg.access_token);
         setInputValue('google_refresh_token', googleCfg.refresh_token);
         setInputValue('google_auth_code', googleCfg.auth_code);
+        setInputValue('google_redirect_uri', googleCfg.redirect_uri || 'http://localhost:3000/');
+        setInputValue('google_sitemap_path', googleCfg.sitemap_path || '/sitemap/');
+        setInputValue('google_main_resource', googleCfg.main_resource || 'https://medcentr-cristall.ru/');
     } catch (err) {
         console.error('Ошибка загрузки ключей:', err);
     }
@@ -164,7 +167,10 @@ async function saveGlobalKeys() {
         client_secret: getInputValue('google_client_secret'),
         access_token: getInputValue('google_access_token'),
         refresh_token: getInputValue('google_refresh_token'),
-        auth_code: getInputValue('google_auth_code')
+        auth_code: getInputValue('google_auth_code'),
+        redirect_uri: getInputValue('google_redirect_uri') || 'http://localhost:3000/',
+        sitemap_path: getInputValue('google_sitemap_path') || '/sitemap/',
+        main_resource: getInputValue('google_main_resource') || 'https://medcentr-cristall.ru/'
     };
 
     const [yRes, gRes] = await Promise.all([
@@ -216,7 +222,7 @@ function renderKeysSummary(containerId, service, cfg) {
 
     const fields = service === 'yandex'
         ? [{label: 'OAuth', val: cfg.oauth_token}, {label: 'User ID', val: cfg.user_id}, {label: 'Metric ID', val: cfg.metricCounterId}, {label: 'Contact', val: cfg.contactPath}]
-        : [{label: 'Client ID', val: cfg.client_id}, {label: 'Secret', val: cfg.client_secret}, {label: 'Access Token', val: cfg.access_token}, {label: 'Refresh', val: cfg.refresh_token}];
+        : [{label: 'Client ID', val: cfg.client_id}, {label: 'Secret', val: cfg.client_secret}, {label: 'Access Token', val: cfg.access_token}, {label: 'Refresh', val: cfg.refresh_token}, {label: 'Sitemap', val: cfg.sitemap_path}, {label: 'Main Res', val: cfg.main_resource}];
 
     container.innerHTML = fields.map(f => `
         <span><span class="key-label">${f.label}:</span> <span class="key-value">${maskValue(f.val)}</span></span>

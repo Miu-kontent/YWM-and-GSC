@@ -26,7 +26,6 @@ class Api:
         self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
-        self.google_env_path = os.path.join(self.google_dir, ".env")
 
         self.running_processes = {}
 
@@ -102,7 +101,16 @@ class Api:
         if service == "yandex":
             default.update({"oauth_token": "", "user_id": "", "metricCounterId": "", "contactPath": "contacts"})
         else:
-            default.update({"client_id": "", "client_secret": "", "access_token": "", "refresh_token": "", "auth_code": "", "redirect_uri": "http://localhost:3000/"})
+            default.update({
+                "client_id": "", 
+                "client_secret": "", 
+                "access_token": "", 
+                "refresh_token": "", 
+                "auth_code": "", 
+                "redirect_uri": "http://localhost:3000/",
+                "sitemap_path": "/sitemap/",
+                "main_resource": "https://medcentr-cristall.ru/"
+            })
 
         if os.path.exists(path):
             try:
@@ -160,23 +168,6 @@ class Api:
         except Exception as e:
             print(f"[API] Ошибка генерации arr.js: {e}")
 
-    def generate_google_env(self):
-        config = self.get_config("google")
-        lines = [
-            f"CLIENT_ID={config.get('client_id', '')}",
-            f"CLIENT_SECRET={config.get('client_secret', '')}",
-            f"ACCESS_TOKEN={config.get('access_token', '')}",
-            f"REFRESH_TOKEN={config.get('refresh_token', '')}",
-            f"AUTH_CODE={config.get('auth_code', '')}",
-            f"REDIRECT_URI={config.get('redirect_uri', 'http://localhost:3000/')}",
-        ]
-        try:
-            with open(self.google_env_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(lines))
-            print(f"[API] Generated {self.google_env_path}")
-        except Exception as e:
-            print(f"[API] Ошибка генерации .env: {e}")
-
     def launch_browser(self, service):
         port = 9229 if service == "yandex" else 9227
         profile_name = "chrome-debug-yandex" if service == "yandex" else "chrome-debug-google"
@@ -213,8 +204,6 @@ class Api:
 
     def run_script(self, service, script_name):
         self.generate_arr_js(service, script_name)
-        if service == "google":
-            self.generate_google_env()
 
         service_dir = self.yandex_dir if service == "yandex" else self.google_dir
         script_path = os.path.join(service_dir, "scripts", f"{script_name}.js")

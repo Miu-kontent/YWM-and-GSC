@@ -5,38 +5,18 @@
 const fs = require('fs');
 const path = require('path');
 const { loadConfig } = require('./loadConfig');
+const { loadGoogleConfig } = require('./loadGoogleConfig');
+
 const config = loadConfig('gsc_verify');
 if (!config) process.exit(1);
+
+const googleConfig = loadGoogleConfig();
+if (!googleConfig) process.exit(1);
 
 const { gsc_subdomains } = config;
 const { google } = require('googleapis');
 const https = require('https');
 const url = require('url');
-
-// =============================================================================
-// 1. ЗАГРУЗКА .env ИЗ ПАПКИ GOOGLE
-// =============================================================================
-
-function loadEnvFromArrays() {
-    const envPath = path.join(__dirname, '..', '.env');
-    if (!fs.existsSync(envPath)) {
-        console.log('❌ Файл .env не найден!');
-        return false;
-    }
-
-    console.log(`✅ Найден файл .env: ${envPath}`);
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    const envLines = envContent.split('\n');
-
-    for (const line of envLines) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-            const [key, value] = trimmed.split('=');
-            if (key && value) process.env[key] = value;
-        }
-    }
-    return true;
-}
 
 
 // =============================================================================
@@ -84,7 +64,7 @@ function getSubdomainsFromArrJS() {
 const scopes = ['https://www.googleapis.com/auth/siteverification'];
 
 async function getAccessToken(oauth2Client) {
-    let authCode = process.env.AUTH_CODE;
+    let authCode = googleConfig.auth_code;
     if (authCode && authCode.includes('%')) {
         try {
             authCode = decodeURIComponent(authCode);
@@ -101,7 +81,7 @@ async function getAccessToken(oauth2Client) {
         });
         console.log('\n🔗 Перейдите по ссылке и получите код:');
         console.log(authUrl);
-        console.log('\n📌 Вставьте полученный код в .env как AUTH_CODE=ваш_код');
+        console.log('\n📌 Вставьте полученный код в google/config.json как auth_code=ваш_код');
         return false;
     }
 
@@ -110,13 +90,16 @@ async function getAccessToken(oauth2Client) {
         oauth2Client.setCredentials(tokens);
         console.log('✅ Токен получен');
         
-        const envPath = path.join(__dirname, '..', '.env');
-        if (fs.existsSync(envPath)) {
-            let envContent = fs.readFileSync(envPath, 'utf8');
-            envContent = envContent.replace(/^AUTH_CODE=.*$/m, 'AUTH_CODE=');
-            fs.writeFileSync(envPath, envContent);
-            console.log('✅ AUTH_CODE очищен в .env');
+        // Обновляем access_token в config.json
+        googleConfig.access_token = tokens.access_token;
+        if (tokens.refresh_token) {
+            googleConfig.refresh_token = tokens.refresh_token;
         }
+        googleConfig.auth_code = '';
+        
+        const configPath = path.join(__dirname, '..', 'config.json');
+        fs.writeFileSync(configPath, JSON.stringify(googleConfig, null, 2));
+        console.log('✅ Токены сохранены в google/config.json, auth_code очищен');
         return true;
     } catch (err) {
         console.error('❌ Ошибка получения токена:', err.message);
@@ -265,7 +248,11 @@ async function main() {
     console.log('🚀 ВЕРИФИКАЦИЯ В GOOGLE SEARCH CONSOLE');
     console.log('='.repeat(70) + '\n');
 
-    if (!loadEnvFromArrays()) return;
+    if (!googleConfig.client_id || !googleConfig.client_secret || !googleConfig.redirect_uri) {
+        console.log('❌ Отсутствуют данные в google/config.json');
+        console.log('   Добавьте: client_id, client_secret, redirect_uri');
+        return;
+    }
 
     const subdomains = gsc_subdomains || [];
     if (subdomains.length === 0) {
@@ -274,10 +261,18 @@ async function main() {
     }
 
     const oauth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        process.env.REDIRECT_URI
+        googleConfig.client_id,
+        googleConfig.client_secret,
+        googleConfig.redirect_uri
     );
+
+    // Если есть access_token, используем его
+    if (googleConfig.access_token) {
+        oauth2Client.setCredentials({
+            access_token: googleConfig.access_token,
+            refresh_token: googleConfig.refresh_token
+        });
+    }
 
     const hasToken = await getAccessToken(oauth2Client);
     if (!hasToken) return;
