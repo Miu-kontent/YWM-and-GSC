@@ -97,7 +97,7 @@ function toggleTheme() {
 }
 
 function updateThemeIcon() {
-    const btn = document.querySelector('.theme-toggle');
+    const btn = document.querySelector('.btn--icon');
     if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️' : '🌙';
 }
 
@@ -119,9 +119,9 @@ function skipUpdate() {
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav__item').forEach(el => el.classList.remove('active'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-    document.querySelector(`.nav-tab[data-tab="${tabName}"]`).classList.add('active');
+    document.querySelector(`.nav__item[data-tab="${tabName}"]`).classList.add('active');
     currentTab = tabName;
 }
 
@@ -286,27 +286,30 @@ function renderScriptsPanel(service, scripts) {
         const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
 
         const inputsHtml = fields.map(field => `
-            <div class="textarea-wrapper">
-                <label>${field} (по одному на строку или JSON)</label>
-                <textarea id="${scriptId}-${field}" placeholder="Введите ${field}...">${savedData[field] || ''}</textarea>
+            <div class="form-group">
+                <label class="form-label">${field} (по одному на строку или JSON)</label>
+                <textarea class="form-control" id="${scriptId}-${field}" placeholder="Введите ${field}...">${savedData[field] || ''}</textarea>
             </div>
         `).join('');
 
         return `
-            <div class="script-card ${service}" id="${scriptId}-card">
-                <div class="script-header">
-                    <h3>${script} <span class="script-badge ${script.endsWith('.py') ? 'py' : 'js'}">${script.endsWith('.py') ? 'Python' : 'JS'}</span></h3>
-                    <button class="btn btn-small" onclick="toggleScriptBody('${scriptId}')">⌄</button>
+            <div class="card" id="${scriptId}-card">
+                <div class="card__header" style="justify-content: space-between;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span>${script}</span> 
+                        <span class="badge ${script.endsWith('.py') ? 'badge--py' : 'badge--js'}" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--border-color);">${script.endsWith('.py') ? 'Python' : 'JS'}</span>
+                    </div>
+                    <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">⌄</button>
                 </div>
                 <div class="script-body hidden" id="${scriptId}-body">
                     ${inputsHtml}
-                    <div class="script-actions">
-                        <button class="btn btn-primary" onclick="runScript('${service}', '${script}')">▶ Запустить</button>
-                        <button class="btn btn-secondary" onclick="saveScriptData('${service}', '${script}')">💾 Сохранить данные</button>
-                        <span class="script-status" id="${scriptId}-status"></span>
+                    <div class="align-right" style="justify-content: flex-start; align-items: center;">
+                        <button class="btn btn--primary" onclick="runScript('${service}', '${script}')">▶ Запустить</button>
+                        <button class="btn btn--secondary" onclick="saveScriptData('${service}', '${script}')">💾 Сохранить</button>
+                        <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
                     </div>
-                    <div class="logs-container" id="${scriptId}-logs"></div>
-                    <div class="report-table-wrapper hidden" id="${scriptId}-report"></div>
+                    <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
+                    <div class="table-wrapper hidden" id="${scriptId}-report"></div>
                 </div>
             </div>
         `;
@@ -395,7 +398,6 @@ function getScriptInputs(scriptId) {
     return data;
 }
 
-// Called from Python via evaluate_js
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
     const logsEl = document.getElementById(`${scriptId}-logs`);
@@ -415,11 +417,11 @@ function appendLog(key, line) {
 function scriptFinished(key) {
     const scriptId = key.replace(':', '-');
     const statusEl = document.getElementById(`${scriptId}-status`);
-    const btn = document.querySelector(`#${scriptId}-card .btn-primary`);
+    const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
 
     if (statusEl) {
         statusEl.textContent = 'Завершено';
-        statusEl.style.color = 'var(--accent-success)';
+        statusEl.style.color = 'var(--status-success-text)';
     }
     if (btn) {
         btn.disabled = false;
@@ -430,36 +432,10 @@ function scriptFinished(key) {
 }
 
 function generateReport(scriptId) {
-    const logsEl = document.getElementById(`${scriptId}-logs`);
-    const reportEl = document.getElementById(`${scriptId}-report`);
-    if (!logsEl || !reportEl) return;
-
-    const lines = logsEl.querySelectorAll('.log-line');
-    const reportData = [];
-
-    lines.forEach(line => {
-        const text = line.textContent;
-        const match = text.match(/\[.*?\]\s*(.+)/);
-        if (match) {
-            const msg = match[1];
-            if (msg.includes('→') || msg.includes('статус') || msg.includes('Status') || msg.includes('result')) {
-                const parts = msg.split(/[→:]/).map(s => s.trim());
-                if (parts.length >= 2) {
-                    reportData.push({
-                        subdomain: parts[0],
-                        status: parts[1],
-                        details: parts.slice(2).join(' '),
-                        error: ''
-                    });
-                }
-            }
-        }
-    });
-
     if (reportData.length === 0) return;
 
     reportEl.innerHTML = `
-        <table class="report-table">
+        <table class="table">
             <thead>
                 <tr>
                     <th>Поддомен</th>
@@ -473,16 +449,16 @@ function generateReport(scriptId) {
                 ${reportData.map(r => `
                     <tr>
                         <td>${r.subdomain}</td>
-                        <td class="status-${r.status.toLowerCase().includes('ok') || r.status.toLowerCase().includes('успех') ? 'ok' : r.status.toLowerCase().includes('error') ? 'error' : 'warning'}">${r.status}</td>
+                        <td style="color: var(--status-${r.status.toLowerCase().includes('ok') || r.status.toLowerCase().includes('успех') ? 'success' : r.status.toLowerCase().includes('error') ? 'error' : 'warning'}-text)">${r.status}</td>
                         <td>${r.details}</td>
                         <td>${r.error}</td>
-                        <td><button class="copy-btn" onclick="copyCell(this)">Копировать строку</button></td>
+                        <td><button class="btn btn--secondary btn--small" onclick="copyCell(this)">Скопировать</button></td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>
-        <div class="button-wrapper" style="margin-top: 12px;">
-            <button class="btn btn-secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>
+        <div class="align-right">
+            <button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>
         </div>
     `;
     reportEl.classList.remove('hidden');

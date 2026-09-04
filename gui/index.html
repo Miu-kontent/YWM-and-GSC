@@ -7,136 +7,141 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Экран загрузки -->
+    <!-- Экран загрузки (оставлен без изменений) -->
     <div id="loader" class="loader-overlay">
         <div class="spinner"></div>
         <p id="loader-status">Загрузка приложения...</p>
-        <!-- Контейнер для вывода логов -->
         <div id="loader-logs" class="logs-container"></div>
     </div>
 
     <!-- Диалог обновления -->
     <div id="version-overlay" class="hidden">
-        <div class="version-dialog">
-            <h2>🆕 Новая версия доступна</h2>
-            <p>Версия <strong id="remote-ver"></strong> доступна на сервере.<br>Текущая версия: <strong id="local-ver"></strong></p>
-            <div class="version-buttons">
-                <button id="btn-update" onclick="doUpdate()">Обновить</button>
-                <button id="btn-skip" onclick="skipUpdate()">Пропустить</button>
+        <div class="card" style="margin: auto; max-width: 420px; text-align: center;">
+            <h2 class="section__title">🆕 Новая версия доступна</h2>
+            <p class="card__body" style="margin-bottom: 24px;">Версия <strong id="remote-ver"></strong> доступна на сервере.<br>Текущая версия: <strong id="local-ver"></strong></p>
+            <div class="grid grid--2-cols">
+                <button id="btn-update" class="btn btn--primary" onclick="doUpdate()">Обновить</button>
+                <button id="btn-skip" class="btn btn--secondary" onclick="skipUpdate()">Пропустить</button>
             </div>
         </div>
     </div>
 
     <header class="header">
         <h1>YWM-and-GSC</h1>
-        <nav class="nav-tabs">
-            <button class="nav-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">🏠 Главная</button>
-            <button class="nav-tab" data-tab="yandex" onclick="switchTab('yandex')">🌏 Яндекс</button>
-            <button class="nav-tab" data-tab="google" onclick="switchTab('google')">🔍 Google</button>
+        <!-- Используем универсальную навигацию -->
+        <nav class="nav nav--horizontal" id="main-nav">
+            <button class="nav__item active" data-tab="dashboard" onclick="switchTab('dashboard')">🏠 Главная</button>
+            <button class="nav__item" data-tab="yandex" onclick="switchTab('yandex')">🌏 Яндекс</button>
+            <button class="nav__item" data-tab="google" onclick="switchTab('google')">🔍 Google</button>
         </nav>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему">🌙</button>
+        <button class="btn--icon" onclick="toggleTheme()" title="Сменить тему">🌙</button>
     </header>
 
     <main class="container">
-        <section id="tab-dashboard" class="tab-content active">
-            <div class="service-cards">
-                <div class="service-card" onclick="switchTab('yandex')">
-                    <div class="service-header">
-                        <div class="service-icon">🌏</div>
-                        <h2>Яндекс: Вебмастер & Метрика</h2>
+        <section id="tab-dashboard" class="tab-content">
+            <!-- Универсальная адаптивная сетка вместо жесткого service-cards -->
+            <div class="grid grid--responsive section">
+                <div class="card card--interactive" onclick="switchTab('yandex')">
+                    <div class="card__header">
+                        <span class="card__icon">🌏</span>
+                        <span>Яндекс: Вебмастер & Метрика</span>
                     </div>
-                    <p>Выгрузка/добавление/подтверждение/региональность/sitemap/метрика/...</p>
+                    <div class="card__body">Выгрузка/добавление/подтверждение/региональность/sitemap/метрика/...</div>
                 </div>
-                <div class="service-card" onclick="switchTab('google')">
-                    <div class="service-header">
-                        <div class="service-icon">🔍</div>
-                        <h2>Google Search Console</h2>
+                <div class="card card--interactive" onclick="switchTab('google')">
+                    <div class="card__header">
+                        <span class="card__icon">🔍</span>
+                        <span>Google Search Console</span>
                     </div>
-                    <p>Выгрузка/добавление/подтверждение/sitemap/...</p>
-                </div>
-            </div>
-            <div class="global-keys">
-                <h3>🔐 Общие ключи доступа</h3>
-                <div class="keys-grid">
-                    <div class="key-block yandex">
-                        <h4>Яндекс</h4>
-                        <div class="input-row">
-                            <label>OAuth Token</label>
-                            <input type="password" id="yandex_oauth_token" placeholder="y0_AgAAA...">
-                        </div>
-                        <div class="input-row">
-                            <label>User ID</label>
-                            <input type="text" id="yandex_user_id" placeholder="123456789">
-                        </div>
-                        <div class="input-row">
-                            <label>Metric Counter ID</label>
-                            <input type="text" id="yandex_metric_id" placeholder="12345678">
-                        </div>
-                        <div class="input-row">
-                            <label>Contact Path</label>
-                            <input type="text" id="yandex_contact_path" value="contacts">
-                        </div>
-                        <button class="btn btn-small" onclick="launchBrowser('yandex')">🌐 Запустить браузер (порт 9229)</button>
-                    </div>
-                    <div class="key-block google">
-                        <h4>Google</h4>
-                        <div class="input-row">
-                            <label>Client ID</label>
-                            <input type="text" id="google_client_id" placeholder="xxx.apps.googleusercontent.com">
-                        </div>
-                        <div class="input-row">
-                            <label>Client Secret</label>
-                            <input type="password" id="google_client_secret" placeholder="GOCSPX-...">
-                        </div>
-                        <div class="input-row">
-                            <label>Access Token</label>
-                            <input type="password" id="google_access_token" placeholder="ya29.a0A...">
-                        </div>
-                        <div class="input-row">
-                            <label>Refresh Token</label>
-                            <input type="password" id="google_refresh_token" placeholder="1//...">
-                        </div>
-                        <div class="input-row">
-                            <label>Auth Code</label>
-                            <input type="text" id="google_auth_code" placeholder="4/0A... (одноразовый)">
-                        </div>
-                        <div class="input-row">
-                            <label>Redirect URI</label>
-                            <input type="text" id="google_redirect_uri" value="http://localhost:3000/">
-                        </div>
-                        <div class="input-row">
-                            <label>Sitemap Path</label>
-                            <input type="text" id="google_sitemap_path" value="/sitemap/">
-                        </div>
-                        <div class="input-row">
-                            <label>Main Resource</label>
-                            <input type="text" id="google_main_resource" value="https://medcentr-cristall.ru/">
-                        </div>
-                        <button class="btn btn-small" onclick="launchBrowser('google')">🌐 Запустить браузер (порт 9227)</button>
-                    </div>
-                </div>
-                <div class="button-wrapper">
-                    <button class="btn btn-primary" onclick="saveGlobalKeys()">💾 Сохранить все ключи</button>
+                    <div class="card__body">Выгрузка/добавление/подтверждение/sitemap/...</div>
                 </div>
             </div>
+
+            <!-- Универсальная секция вместо жесткого global-keys -->
+            <section class="section">
+                <h3 class="section__title">🔐 Общие ключи доступа</h3>
+                
+                <!-- Разделение на два подблока через Grid -->
+                <div class="grid grid--2-cols">
+                    
+                    <!-- Блок Яндекс -->
+                    <div class="card">
+                        <div class="card__header">
+                            <span class="card__icon">🌏</span> Яндекс
+                            <button class="btn btn--secondary btn--small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
+                            <button class="btn btn--primary" onclick="saveYandexKeys()">💾 Сохранить Яндекс</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">OAuth Token</label>
+                            <input type="password" class="form-control" id="yandex_oauth_token" placeholder="y0_AgAAA...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">User ID</label>
+                            <input type="text" class="form-control" id="yandex_user_id" placeholder="123456789">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Счетчик метрики</label>
+                            <input type="text" class="form-control" id="yandex_metric_id" placeholder="12345678">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Страница контактов</label>
+                            <input type="text" class="form-control" id="yandex_contact_path" placeholder="contacts">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sitemap</label>
+                            <input type="text" class="form-control" id="yandex_sitemap_path" placeholder="/sitemap/">
+                        </div>
+                    </div>
+
+                    <!-- Блок Google -->
+                    <div class="card">
+                        <div class="card__header">
+                            <span class="card__icon">🔍</span> Google
+                            <button class="btn btn--secondary btn--small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
+                            <button class="btn btn--primary" onclick="saveGoogleKeys()">💾 Сохранить Google</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Client ID</label>
+                            <input type="text" class="form-control" id="google_client_id" placeholder="xxx.apps.googleusercontent.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Client Secret</label>
+                            <input type="password" class="form-control" id="google_client_secret" placeholder="GOCSPX-...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Access Token</label>
+                            <input type="password" class="form-control" id="google_access_token" placeholder="ya29.a0A...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Auth Code</label>
+                            <input type="text" class="form-control" id="google_auth_code" placeholder="4/0A... (одноразовый)">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sitemap</label>
+                            <input type="text" class="form-control" id="google_sitemap_path" placeholder="/sitemap/">
+                        </div>
+                    </div>
+                </div>
+            </section>
         </section>
 
+        <!-- Вкладки сервисов -->
         <section id="tab-yandex" class="tab-content hidden">
             <div class="page-header">
-                <h2>🌏 Яндекс.Вебмастер</h2>
-                <button class="btn btn-small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
+                <h2 class="section__title" style="margin:0;">🌏 Яндекс.Вебмастер</h2>
+                <button class="btn btn--secondary btn--small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
             </div>
-            <div class="keys-summary yandex" id="yandex-keys-summary"></div>
-            <div class="scripts-panel" id="yandex-scripts"></div>
+            <div class="card keys-summary" id="yandex-keys-summary"></div>
+            <div class="grid" id="yandex-scripts"></div>
         </section>
 
         <section id="tab-google" class="tab-content hidden">
             <div class="page-header">
-                <h2>🔍 Google Search Console</h2>
-                <button class="btn btn-small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
+                <h2 class="section__title" style="margin:0;">🔍 Google Search Console</h2>
+                <button class="btn btn--secondary btn--small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
             </div>
-            <div class="keys-summary google" id="google-keys-summary"></div>
-            <div class="scripts-panel" id="google-scripts"></div>
+            <div class="card keys-summary" id="google-keys-summary"></div>
+            <div class="grid" id="google-scripts"></div>
         </section>
     </main>
 
