@@ -7,7 +7,8 @@ import subprocess
 import webview
 import requests
 import shutil
-
+import zipfile
+import io
 
 class Api:
     def __init__(self):
@@ -22,7 +23,7 @@ class Api:
         self.utils_dir = os.path.join(self.base_dir, "utils")
         self.version_path = os.path.join(self.utils_dir, "version.json")
         self.remote_version_url = "https://raw.githubusercontent.com/Miu-kontent/YWM-and-GSC/main/utils/version.json"
-
+        self.repo_zip_url = "https://github.com/Miu-kontent/YWM-and-GSC/zipball/main.zip"
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
         self.google_env_path = os.path.join(self.google_dir, ".env")
@@ -61,6 +62,41 @@ class Api:
         except Exception as e:
             return {"success": False, "update_available": False, "local_version": local_ver, "error_code": e}
 
+    def update_app(self) -> dict:
+        """Загрузка и распаковка обновления лаунчера"""
+        try:
+            headers = {"Cache-Control": "no-cache"}
+            cache_buster = f"?nocache={int(time.time())}"
+            response = requests.get(self.repo_zip_url + cache_buster, headers=headers, timeout=60)
+            if response.status_code != 200:
+                return {"success": False, "message": f"Ошибка сети HTTP {response.status_code}"}
+
+            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                root_prefix = z.namelist()[0].split('/')[0] + '/'
+                for member in z.namelist():
+                    if member == root_prefix:
+                        continue
+                    rel_path = member[len(root_prefix):]
+                    if rel_path.startswith((".git/", ".venv")) or rel_path.endswith("config.json"):
+                        continue
+
+                    target_path = os.path.join(self.base_dir, rel_path)
+                    if member.endswith('/'):
+                        os.makedirs(target_path, exist_ok=True)
+                    else:
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        with z.open(member) as source, open(target_path, "wb") as target:
+                            shutil.copyfileobj(source, target)
+
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def restart_app(self):
+        """Чистый перезапуск приложения с очисткой процессов"""
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+            
     def get_config(self, service):
         path = self.yandex_config_path if service == "yandex" else self.google_config_path
         default = {"scripts_data": {}}

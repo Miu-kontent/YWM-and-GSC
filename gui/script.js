@@ -19,7 +19,7 @@ window.addEventListener('pywebviewready', () => {
             // 1. Показываем подготовленное окно
             const loaderStatus = document.getElementById('loader-status');
             const loader = document.getElementById('loader');
-            const updateModal = document.getElementById('update-modal');
+            const versionOverlay = document.getElementById('version-overlay');
 
             if (loaderStatus) loaderStatus.innerText = "Проверка обновлений...";
 
@@ -32,10 +32,10 @@ window.addEventListener('pywebviewready', () => {
             // 3. Проверяем наличие новой версии лаунчера
             if (updateCheck.success) {
                 if (updateCheck.update_available) {
+                    addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
                     document.getElementById('local-ver').textContent = updateCheck.local_version;
                     document.getElementById('remote-ver').textContent = updateCheck.remote_version;
-                    updateModal.classList.remove('hidden');
-                    addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
+                    setTimeout(() => { versionOverlay.classList.remove('hidden'); }, 500);
                 } else {
                     addLoaderLog(`✅ Версия актуальна (${updateCheck.local_version})`);
                     setTimeout(() => { loader.classList.add('hidden'); }, 500);
@@ -53,6 +53,36 @@ window.addEventListener('pywebviewready', () => {
             // await loadScriptsLists();       
     })
 })
+
+async function doUpdate() {
+    const versionOverlay = document.getElementById('version-overlay');
+    const loaderStatus = document.getElementById('loader-status');
+
+    if (versionOverlay) versionOverlay.classList.add('hidden');
+    if (loaderStatus) loaderStatus.innerText = "Скачивание и установка обновления...";
+
+    const res = await window.pywebview.api.update_app();
+
+    if (res && res.success) {
+        if (loaderStatus) loaderStatus.innerText = "Обновление установлено! Перезапуск...";
+        
+        setTimeout(() => {
+            // Отправляем команду на запуск нового процесса
+            window.pywebview.api.restart_app();
+            
+            // Сразу же закрываем текущее окно UI
+            setTimeout(() => { 
+                window.close(); 
+            }, 100);
+            
+        }, 1200);
+    } else {
+        if (loaderStatus) {
+            loaderStatus.innerText = `Ошибка обновления: ${res.message}`;
+            loaderStatus.style.color = "#f75a68";
+        }
+    }
+}
 
 function applySavedTheme() {
     const theme = localStorage.getItem('theme') || 'dark';
@@ -83,7 +113,7 @@ function addLoaderLog(msg) {
 }
 
 function skipUpdate() {
-    document.getElementById('update-modal').classList.add('hidden');
+    document.getElementById('version-overlay').classList.add('hidden');
     document.getElementById('loader').classList.add('hidden');
 }
 
