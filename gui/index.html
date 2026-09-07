@@ -39,8 +39,8 @@
 
     <main class="container">
         <section id="tab-dashboard" class="tab-content">
-            <!-- Универсальная адаптивная сетка вместо жесткого service-cards -->
-            <div class="grid grid--responsive section">
+            <!-- Универсальная адаптивная сетка -->
+            <!-- <div class="grid grid--responsive section">
                 <div class="card card--interactive" onclick="switchTab('yandex')">
                     <div class="card__header">
                         <span class="card__icon">🌏</span>
@@ -55,9 +55,9 @@
                     </div>
                     <div class="card__body">Выгрузка/добавление/подтверждение/sitemap/...</div>
                 </div>
-            </div>
+            </div> -->
 
-            <!-- Универсальная секция вместо жесткого global-keys -->
+            <!-- Универсальная секция вместо жесткого -->
             <section class="section">
                 <h3 class="section__title">🔐 Ключи доступов</h3>
                 
@@ -65,11 +65,11 @@
                 <div class="grid grid--2-cols">
                     
                     <!-- Блок Яндекс -->
-                    <div class="card">
+                    <div class="card" id="yandex-keys-summary">
                         <div class="card__header">
                             <span class="card__icon">🌏</span> Яндекс
                             <button class="btn btn--primary" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
-                            <button class="btn btn--primary" onclick="saveYandexKeys()">💾 Сохранить Яндекс</button>
+                            <button class="btn btn--primary" onclick="saveKeys('yandex')">💾 Сохранить Яндекс</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">OAuth Token</label>
@@ -94,11 +94,11 @@
                     </div>
 
                     <!-- Блок Google -->
-                    <div class="card">
+                    <div class="card" id="google-keys-summary">
                         <div class="card__header">
                             <span class="card__icon">🔍</span> Google
                             <button class="btn btn--primary" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
-                            <button class="btn btn--primary" onclick="saveGoogleKeys()">💾 Сохранить Google</button>
+                            <button class="btn btn--primary" onclick="saveKeys('google')">💾 Сохранить Google</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Client ID</label>
@@ -131,7 +131,7 @@
                 <h2 class="section__title" style="margin:0;">🌏 Яндекс.Вебмастер</h2>
                 <button class="btn btn--secondary btn--small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
             </div>
-            <div class="card keys-summary" id="yandex-keys-summary"></div>
+            <div class="card keys-summary"></div>
             <div class="grid" id="yandex-scripts"></div>
         </section>
 
@@ -140,7 +140,7 @@
                 <h2 class="section__title" style="margin:0;">🔍 Google Search Console</h2>
                 <button class="btn btn--secondary btn--small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
             </div>
-            <div class="card keys-summary" id="google-keys-summary"></div>
+            <div class="card keys-summary"></div>
             <div class="grid" id="google-scripts"></div>
         </section>
     </main>

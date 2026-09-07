@@ -10,6 +10,8 @@ import shutil
 import zipfile
 import io
 
+# import webbrowser
+
 class Api:
     def __init__(self):
         if getattr(sys, 'frozen', False):
@@ -24,8 +26,11 @@ class Api:
         self.version_path = os.path.join(self.utils_dir, "version.json")
         self.remote_version_url = "https://raw.githubusercontent.com/Miu-kontent/YWM-and-GSC/main/utils/version.json"
         self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
+        self.yandex_app_config_path = os.path.join(self.yandex_dir, "app_config.json")
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
+        self.yandex_scripts_dir = os.path.join(self.yandex_dir, "scripts")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
+        self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
         self.running_processes = {}
 
@@ -99,26 +104,29 @@ class Api:
         path = self.yandex_config_path if service == "yandex" else self.google_config_path
         default = {"scripts_data": {}}
         if service == "yandex":
-            default.update({"oauth_token": "", "user_id": "", "metricCounterId": "", "contactPath": "contacts"})
+            default.update({
+                "oauth_token": "", 
+                "user_id": "", 
+                "metric_id": "", 
+                "contact_path": "", 
+                "sitemap_path": ""
+            })
         else:
             default.update({
                 "client_id": "", 
                 "client_secret": "", 
                 "access_token": "", 
-                "refresh_token": "", 
                 "auth_code": "", 
-                "redirect_uri": "http://localhost:3000/",
-                "sitemap_path": "/sitemap/",
-                "main_resource": "https://medcentr-cristall.ru/"
+                "sitemap_path": ""
             })
 
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8-sig") as f:
-                    data = json.load(f)
-                    default.update(data)
-            except Exception as e:
-                print(f"[API] Ошибка чтения {service} config: {e}")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            with open(path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+                default.update(data)
+        except Exception as e:
+            print(f"[API] Ошибка чтения {service} config: {e}")
         return default
 
     def save_config(self, service, data):
@@ -126,13 +134,20 @@ class Api:
         try:
             current = self.get_config(service)
             current.update(data)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(current, f, ensure_ascii=False, indent=4)
             return {"success": True}
         except Exception as e:
             print(f"[API] Ошибка сохранения {service} config: {e}")
-            return {"success": False, "message": str(e)}
+            return {"success": False}
+
+    def get_scripts_list(self, service):
+        scripts_dir = self.yandex_scripts_dir if service == "yandex" else self.google_scripts_dir
+        scripts = []
+        for f in os.listdir(scripts_dir):
+            if f.endswith(".js") or f.endswith(".py"):
+                scripts.append(f[:-3])
+        return {"scripts": scripts}
 
     def save_script_data(self, service, script_name, data):
         config = self.get_config(service)
@@ -170,8 +185,10 @@ class Api:
 
     def launch_browser(self, service):
         port = 9229 if service == "yandex" else 9227
+        profiles_dir = os.path.join(self.base_dir, "debug_profiles")
+        os.makedirs(profiles_dir, exist_ok=True)
         profile_name = "chrome-debug-yandex" if service == "yandex" else "chrome-debug-google"
-        profile_path = os.path.join(self.base_dir, f".{profile_name}")
+        profile_path = os.path.join(profiles_dir, profile_name)
 
         chrome_path = self._find_chrome()
         if not chrome_path:
@@ -181,7 +198,7 @@ class Api:
             chrome_path,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile_path}",
-            "--no-first-run",
+            # "--no-first-run",
             "--no-default-browser-check"
         ]
 
@@ -246,16 +263,92 @@ class Api:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
-    def get_scripts_list(self, service):
-        service_dir = self.yandex_dir if service == "yandex" else self.google_dir
-        scripts_dir = os.path.join(service_dir, "scripts")
-        scripts = []
-        if os.path.exists(scripts_dir):
-            for f in os.listdir(scripts_dir):
-                if f.endswith(".js") or f.endswith(".py"):
-                    scripts.append(f[:-3])
-        return {"scripts": scripts}
+#     def start_yandex_auth(self):
+#         config = self.get_config("yandex")
+#         client_id = config.get("client_id")
+        
+#         if not client_id:
+#             return {"success": False, "message": "Сначала укажите и сохраните client_id в конфигурации Яндекса!"}
 
+#         # Формируем ссылку авторизации (Implicit Flow)[cite: 1]
+#         auth_url = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={client_id}"
+
+#         server_address = ("localhost", 3000)
+#         httpd = HTTPServer(server_address, OAuthCallbackHandler)
+#         OAuthCallbackHandler.token_received = None
+
+#         # Открываем системный браузер
+#         webbrowser.open(auth_url)
+
+#         # Ждем перехвата токена локальным сервером
+#         while OAuthCallbackHandler.token_received is None:
+#             httpd.handle_request()
+
+#         token = OAuthCallbackHandler.token_received
+#         httpd.server_close()
+
+#         # Запрашиваем user_id через API Вебмастера
+#         headers = {"Authorization": f"OAuth {token}"}
+#         user_resp = requests.get("https://api.webmaster.yandex.net/v4/user/", headers=headers)
+        
+#         if user_resp.status_code != 200:
+#             return {"success": False, "message": "Токен получен, но не удалось запросить user_id"}
+
+#         user_id = str(user_resp.json().get("user_id"))
+
+#         # Сохраняем в конфиг
+#         config["oauth_token"] = token
+#         config["user_id"] = user_id
+#         self.save_config("yandex", config)
+
+#         return {
+#             "success": True,
+#             "oauth_token": token,
+#             "user_id": user_id,
+#             "message": "Авторизация успешно завершена!"
+#         }
+
+# from http.server import HTTPServer, BaseHTTPRequestHandler
+# from urllib.parse import parse_qs, urlparse
+
+# class OAuthCallbackHandler(BaseHTTPRequestHandler):
+#     """Локальный сервер для перехвата OAuth-токена Яндекса"""
+#     token_received = None
+
+#     def do_GET(self):
+#         html_response = """
+#         <!DOCTYPE html>
+#         <html>
+#         <head><meta charset="utf-8"><title>Авторизация Яндекс</title></head>
+#         <body style="font-family: Arial; text-align: center; padding-top: 50px;">
+#             <h3 style="color: #333;">Авторизация прошла успешно!</h3>
+#             <p>Получаем данные и закрываем окно...</p>
+#             <script>
+#                 if (window.location.hash) {
+#                     var hash = window.location.hash.substring(1);
+#                     window.location.href = "/save_token?" + hash;
+#                 }
+#             </script>
+#         </body>
+#         </html>
+#         """
+#         if "/save_token" in self.path:
+#             query = parse_qs(urlparse(self.path).query)
+#             if "access_token" in query:
+#                 OAuthCallbackHandler.token_received = query["access_token"][0]
+#                 self.send_response(200)
+#                 self.send_header("Content-Type", "text/html; charset=utf-8")
+#                 self.end_headers()
+#                 self.wfile.write("<h2 style='color: green; text-align: center;'>Токен успешно получен! Окно можно закрыть.</h2>".encode("utf-8"))
+#                 return
+        
+#         self.send_response(200)
+#         self.send_header("Content-Type", "text/html; charset=utf-8")
+#         self.end_headers()
+#         self.wfile.write(html_response.encode("utf-8"))
+
+#     def log_message(self, format, *args):
+#         return  # Отключаем лишний вывод в консоль
 
 def main():
     api = Api()
@@ -273,7 +366,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(debug=False)
+    webview.start(debug=True)
 
 
 if __name__ == "__main__":

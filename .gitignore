@@ -1,9 +1,11 @@
 .venv/
+yandex/app_config.json
 yandex/config.json
 google/config.json
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
+debug_profiles/
 # Playwright
 playwright-report/
 test-results/

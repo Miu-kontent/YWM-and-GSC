@@ -1,4 +1,3 @@
-let currentTab = 'dashboard';
 let runningScripts = {};
 
 // Вспомогательная функция ожидания загрузки элементов страницы (DOM)
@@ -12,24 +11,20 @@ function onDOMReady(callback) {
 
 window.addEventListener('pywebviewready', () => {
     onDOMReady(async () => {
+        await applySavedTheme();
+        const loaderStatus = document.getElementById('loader-status');
+        const loader = document.getElementById('loader');
+        const versionOverlay = document.getElementById('version-overlay');
+
+        loaderStatus.innerText = "Проверка обновлений...";
         try {
-            // 0. Сначала инициализируем настройки (тему), чтобы интерфейс не "моргал"
-            await applySavedTheme();
-
-            // 1. Показываем подготовленное окно
-            const loaderStatus = document.getElementById('loader-status');
-            const loader = document.getElementById('loader');
-            const versionOverlay = document.getElementById('version-overlay');
-
-            if (loaderStatus) loaderStatus.innerText = "Проверка обновлений...";
-
-            // 2. Запрос проверки версий в Python API
+            // 1. Запрос проверки версий в Python API
             const updateCheck = await window.pywebview.api.check_updates();
 
             const verLabel = document.getElementById('launcher-version');
             if (verLabel) verLabel.innerText = `v${updateCheck.local_version}`;
 
-            // 3. Проверяем наличие новой версии лаунчера
+            // 2. Проверяем наличие новой версии лаунчера
             if (updateCheck.success) {
                 if (updateCheck.update_available) {
                     addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
@@ -49,8 +44,11 @@ window.addEventListener('pywebviewready', () => {
             setTimeout(() => { loader.classList.add('hidden'); }, 500);
         }
 
-            // await loadGlobalKeys();
-            // await loadScriptsLists();       
+        loaderStatus.innerText = "Загрузка данных...";
+        addLoaderLog(`ℹ️ Загрузка ключей ...`);
+        await loadGlobalKeys();
+        addLoaderLog(`ℹ️ Загрузка скриптов ...`);
+        await loadScriptsLists();       
     })
 })
 
@@ -117,14 +115,6 @@ function skipUpdate() {
     document.getElementById('loader').classList.add('hidden');
 }
 
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.nav__item').forEach(el => el.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-    document.querySelector(`.nav__item[data-tab="${tabName}"]`).classList.add('active');
-    currentTab = tabName;
-}
-
 async function loadGlobalKeys() {
     try {
         const [yandexCfg, googleCfg] = await Promise.all([
@@ -134,19 +124,17 @@ async function loadGlobalKeys() {
 
         setInputValue('yandex_oauth_token', yandexCfg.oauth_token);
         setInputValue('yandex_user_id', yandexCfg.user_id);
-        setInputValue('yandex_metric_id', yandexCfg.metricCounterId);
-        setInputValue('yandex_contact_path', yandexCfg.contactPath || 'contacts');
+        setInputValue('yandex_metric_id', yandexCfg.metric_id);
+        setInputValue('yandex_contact_path', yandexCfg.contact_path);
+        setInputValue('yandex_sitemap_path', yandexCfg.sitemap_path);
 
         setInputValue('google_client_id', googleCfg.client_id);
         setInputValue('google_client_secret', googleCfg.client_secret);
         setInputValue('google_access_token', googleCfg.access_token);
-        setInputValue('google_refresh_token', googleCfg.refresh_token);
         setInputValue('google_auth_code', googleCfg.auth_code);
-        setInputValue('google_redirect_uri', googleCfg.redirect_uri || 'http://localhost:3000/');
-        setInputValue('google_sitemap_path', googleCfg.sitemap_path || '/sitemap/');
-        setInputValue('google_main_resource', googleCfg.main_resource || 'https://medcentr-cristall.ru/');
+        setInputValue('google_sitemap_path', googleCfg.sitemap_path);
     } catch (err) {
-        console.error('Ошибка загрузки ключей:', err);
+        addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
     }
 }
 
@@ -155,32 +143,30 @@ function setInputValue(id, value) {
     if (el && value) el.value = value;
 }
 
-async function saveGlobalKeys() {
-    const yandexData = {
-        oauth_token: getInputValue('yandex_oauth_token'),
-        user_id: getInputValue('yandex_user_id'),
-        metricCounterId: getInputValue('yandex_metric_id'),
-        contactPath: getInputValue('yandex_contact_path') || 'contacts'
-    };
-    const googleData = {
-        client_id: getInputValue('google_client_id'),
-        client_secret: getInputValue('google_client_secret'),
-        access_token: getInputValue('google_access_token'),
-        refresh_token: getInputValue('google_refresh_token'),
-        auth_code: getInputValue('google_auth_code'),
-        redirect_uri: getInputValue('google_redirect_uri') || 'http://localhost:3000/',
-        sitemap_path: getInputValue('google_sitemap_path') || '/sitemap/',
-        main_resource: getInputValue('google_main_resource') || 'https://medcentr-cristall.ru/'
-    };
+async function saveKeys(service) {
+    let Data;
+    if (service === 'yandex') {
+        Data = {
+            oauth_token: getInputValue('yandex_oauth_token'),
+            user_id: getInputValue('yandex_user_id'),
+            metric_id: getInputValue('yandex_metric_id'),
+            contact_path: getInputValue('yandex_contact_path'),
+            sitemap_path: getInputValue('yandex_sitemap_path')
+        };
+    } else {
+        Data = {
+            client_id: getInputValue('google_client_id'),
+            client_secret: getInputValue('google_client_secret'),
+            access_token: getInputValue('google_access_token'),
+            auth_code: getInputValue('google_auth_code'),
+            sitemap_path: getInputValue('google_sitemap_path'),
+        };
+    }
 
-    const [yRes, gRes] = await Promise.all([
-        window.pywebview.api.save_config('yandex', yandexData),
-        window.pywebview.api.save_config('google', googleData)
-    ]);
+    const Result = await (window.pywebview.api.save_config(service, Data));
 
-    if (yRes.success && gRes.success) {
-        showToast('Ключи сохранены');
-        await loadKeysSummary();
+    if (Result.success) {
+        showToast(`Ключи ${service} сохранены`);
     } else {
         showToast('Ошибка сохранения', 'error');
     }
@@ -206,34 +192,35 @@ async function launchBrowser(service) {
     }
 }
 
-async function loadKeysSummary() {
-    const [yandexCfg, googleCfg] = await Promise.all([
-        window.pywebview.api.get_config('yandex'),
-        window.pywebview.api.get_config('google')
-    ]);
-
-    renderKeysSummary('yandex-keys-summary', 'yandex', yandexCfg);
-    renderKeysSummary('google-keys-summary', 'google', googleCfg);
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.nav__item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    document.querySelector(`.nav__item[data-tab="${tabName}"]`).classList.add('active');
 }
 
-function renderKeysSummary(containerId, service, cfg) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+// async function loadKeysSummary() {
+//     const [yandexCfg, googleCfg] = await Promise.all([
+//         window.pywebview.api.get_config('yandex'),
+//         window.pywebview.api.get_config('google')
+//     ]);
 
-    const fields = service === 'yandex'
-        ? [{label: 'OAuth', val: cfg.oauth_token}, {label: 'User ID', val: cfg.user_id}, {label: 'Metric ID', val: cfg.metricCounterId}, {label: 'Contact', val: cfg.contactPath}]
-        : [{label: 'Client ID', val: cfg.client_id}, {label: 'Secret', val: cfg.client_secret}, {label: 'Access Token', val: cfg.access_token}, {label: 'Refresh', val: cfg.refresh_token}, {label: 'Sitemap', val: cfg.sitemap_path}, {label: 'Main Res', val: cfg.main_resource}];
+//     renderKeysSummary('yandex-keys-summary', 'yandex', yandexCfg);
+//     renderKeysSummary('google-keys-summary', 'google', googleCfg);
+// }
 
-    container.innerHTML = fields.map(f => `
-        <span><span class="key-label">${f.label}:</span> <span class="key-value">${maskValue(f.val)}</span></span>
-    `).join('');
-}
+// function renderKeysSummary(containerId, service, cfg) {
+//     const container = document.getElementById(containerId);
+//     if (!container) return;
 
-function maskValue(val) {
-    if (!val) return 'не задан';
-    if (val.length <= 8) return '***';
-    return val.slice(0, 4) + '***' + val.slice(-4);
-}
+//     const fields = service === 'yandex'
+//         ? [{label: 'OAuth', val: cfg.oauth_token}, {label: 'User ID', val: cfg.user_id}, {label: 'Metric ID', val: cfg.metricCounterId}, {label: 'Contact', val: cfg.contactPath}]
+//         : [{label: 'Client ID', val: cfg.client_id}, {label: 'Secret', val: cfg.client_secret}, {label: 'Access Token', val: cfg.access_token}, {label: 'Refresh', val: cfg.refresh_token}, {label: 'Sitemap', val: cfg.sitemap_path}, {label: 'Main Res', val: cfg.main_resource}];
+
+//     container.innerHTML = fields.map(f => `
+//         <span><span class="key-label">${f.label}:</span> <span class="key-value">${f.val}</span></span>
+//     `).join('');
+// }
 
 async function loadScriptsLists() {
     try {
@@ -245,7 +232,7 @@ async function loadScriptsLists() {
         renderScriptsPanel('yandex', yRes.scripts || []);
         renderScriptsPanel('google', gRes.scripts || []);
     } catch (err) {
-        console.error('Ошибка загрузки скриптов:', err);
+        addLoaderLog(`⚠️ Ошибка загрузки скриптов: ${err.message}`);
     }
 }
 
@@ -346,7 +333,7 @@ async function saveScriptData(service, script) {
     if (res.success) {
         localStorage.setItem(`script_data_${scriptId}`, JSON.stringify(data));
         showToast('Данные скрипта сохранены');
-        await loadKeysSummary();
+        // await loadKeysSummary();
     } else {
         showToast('Ошибка сохранения', 'error');
     }
