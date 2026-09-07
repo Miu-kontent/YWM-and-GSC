@@ -141,12 +141,29 @@ class Api:
             print(f"[API] Ошибка сохранения {service} config: {e}")
             return {"success": False}
 
+    def get_registry(self, service):
+        registry_dir = self.yandex_dir if service == "yandex" else self.google_dir
+        registry_path = os.path.join(registry_dir, "registry.json")
+        if os.path.exists(registry_path):
+            try:
+                with open(registry_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[API] Ошибка чтения registry для {service}: {e}")
+        return {"categories": [], "excludedScripts": []}
+
     def get_scripts_list(self, service):
+        registry = self.get_registry(service)
+        excluded = set(registry.get("excludedScripts", []))
         scripts_dir = self.yandex_scripts_dir if service == "yandex" else self.google_scripts_dir
         scripts = []
         for f in os.listdir(scripts_dir):
-            if f.endswith(".js") or f.endswith(".py"):
-                scripts.append(f[:-3])
+            name = os.path.splitext(f)[0]
+            ext = os.path.splitext(f)[1]
+            if name in excluded:
+                continue
+            if ext in (".js", ".py"):
+                scripts.append({"name": name, "type": ext[1:]})
         return {"scripts": scripts}
 
     def save_script_data(self, service, script_name, data):

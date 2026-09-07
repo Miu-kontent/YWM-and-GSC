@@ -1,0 +1,161 @@
+{
+    "categories": [
+        {
+            "id": "export",
+            "name": "Выгрузка",
+            "description": "Выгрузка данных из Яндекс.Вебмастера",
+            "subcategories": []
+        },
+        {
+            "id": "sites",
+            "name": "Сайты",
+            "description": "Управление сайтами: добавление, подтверждение, удаление",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Добавление нового сайта в Яндекс.Вебмастер",
+                    "script": null,
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": []
+                },
+                {
+                    "id": "verify",
+                    "name": "Подтверждение",
+                    "description": "Подтверждение права собственности на сайт (META_TAG -> HTML_FILE)",
+                    "script": "yandex_verify",
+                    "type": "api",
+                    "fields": ["links", "yandexSettings"]
+                },
+                {
+                    "id": "delete",
+                    "name": "Удаление",
+                    "description": "Удаление сайтов из Яндекс.Вебмастера",
+                    "script": "yandex_sites_to_delete",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["yandex_sites_to_delete"]
+                }
+            ]
+        },
+        {
+            "id": "region",
+            "name": "Регион",
+            "description": "Управление регионами поддоменов",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Массовое добавление регионов поддоменам",
+                    "script": "addRegions",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links", "city", "contactPath"]
+                },
+                {
+                    "id": "check",
+                    "name": "Проверка",
+                    "description": "Проверка текущего региона поддоменов",
+                    "script": "Regi",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links", "city"]
+                }
+            ]
+        },
+        {
+            "id": "sitemaps",
+            "name": "Сайтмапы",
+            "description": "Управление sitemap: добавление, переотправка, удаление",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Добавление sitemap в Яндекс.Вебмастер через API",
+                    "script": "sitemap",
+                    "type": "api",
+                    "fields": ["links", "yandexSettings"]
+                },
+                {
+                    "id": "resend",
+                    "name": "Переотправка",
+                    "description": "Перезапрос sitemap для переобхода",
+                    "script": "recrawl",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links", "yandexSettings"]
+                },
+                {
+                    "id": "delete",
+                    "name": "Удаление",
+                    "description": "Удаление sitemap из Яндекс.Вебмастера",
+                    "script": null,
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": []
+                }
+            ]
+        },
+        {
+            "id": "metrics",
+            "name": "Метрика",
+            "description": "Яндекс.Метрика: добавление, подключение, проверка счётчиков",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Включение обхода по счётчикам для поддоменов",
+                    "script": "addMetrics",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links", "yandexSettings"]
+                },
+                {
+                    "id": "bind",
+                    "name": "Подключение",
+                    "description": "Привязка поддоменов к счётчику Метрики",
+                    "script": "metrika_bind",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["metricCounterId"]
+                },
+                {
+                    "id": "counter",
+                    "name": "Проверка счётчика",
+                    "description": "Проверка обхода счётчиков Метрики",
+                    "script": "metriks",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links", "metricCounterId"]
+                }
+            ]
+        },
+        {
+            "id": "checks",
+            "name": "Проверки",
+            "description": "Проверка ошибок и рекомендаций",
+            "subcategories": [
+                {
+                    "id": "errors",
+                    "name": "Ошибки",
+                    "description": "Проверка ошибок индексирования",
+                    "script": "errors",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links"]
+                },
+                {
+                    "id": "recommendations",
+                    "name": "Рекомендации",
+                    "description": "Проверка рекомендаций Яндекс.Вебмастера",
+                    "script": "recomen",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": ["links"]
+                }
+            ]
+        }
+    ],
+    "excludedScripts": ["loadConfig", "userid"]
+}

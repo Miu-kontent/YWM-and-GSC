@@ -6,6 +6,7 @@ DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
 debug_profiles/
+test.py
 # Playwright
 playwright-report/
 test-results/

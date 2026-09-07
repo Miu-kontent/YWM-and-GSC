@@ -65,83 +65,168 @@
                 <div class="grid grid--2-cols">
                     
                     <!-- Блок Яндекс -->
-                    <div class="card" id="yandex-keys-summary">
+                    <div class="card">
                         <div class="card__header">
                             <span class="card__icon">🌏</span> Яндекс
                             <button class="btn btn--primary" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
-                            <button class="btn btn--primary" onclick="saveKeys('yandex')">💾 Сохранить Яндекс</button>
+                            <button class="btn btn--primary" onclick="saveKeys('yandex', event)">💾 Сохранить Яндекс</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">OAuth Token</label>
-                            <input type="password" class="form-control" id="yandex_oauth_token" placeholder="y0_AgAAA...">
+                            <input type="password" class="form-control" data-service="yandex" data-field="oauth_token" placeholder="y0_AgAAA...">
                         </div>
                         <div class="form-group">
                             <label class="form-label">User ID</label>
-                            <input type="text" class="form-control" id="yandex_user_id" placeholder="123456789">
+                            <input type="text" class="form-control" data-service="yandex" data-field="user_id" placeholder="123456789">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Счетчик метрики</label>
-                            <input type="text" class="form-control" id="yandex_metric_id" placeholder="12345678">
+                            <input type="text" class="form-control" data-service="yandex" data-field="metric_id" placeholder="12345678">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Страница контактов</label>
-                            <input type="text" class="form-control" id="yandex_contact_path" placeholder="contacts">
+                            <input type="text" class="form-control" data-service="yandex" data-field="contact_path" placeholder="contacts">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Sitemap</label>
-                            <input type="text" class="form-control" id="yandex_sitemap_path" placeholder="/sitemap/">
+                            <input type="text" class="form-control" data-service="yandex" data-field="sitemap_path" placeholder="/sitemap/">
                         </div>
                     </div>
 
                     <!-- Блок Google -->
-                    <div class="card" id="google-keys-summary">
+                    <div class="card">
                         <div class="card__header">
                             <span class="card__icon">🔍</span> Google
                             <button class="btn btn--primary" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
-                            <button class="btn btn--primary" onclick="saveKeys('google')">💾 Сохранить Google</button>
+                            <button class="btn btn--primary" onclick="saveKeys('google', event)">💾 Сохранить Google</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Client ID</label>
-                            <input type="text" class="form-control" id="google_client_id" placeholder="xxx.apps.googleusercontent.com">
+                            <input type="text" class="form-control" data-service="google" data-field="client_id" placeholder="xxx.apps.googleusercontent.com">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Client Secret</label>
-                            <input type="password" class="form-control" id="google_client_secret" placeholder="GOCSPX-...">
+                            <input type="text" class="form-control" data-service="google" data-field="client_secret" placeholder="GOCSPX-...">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Access Token</label>
-                            <input type="password" class="form-control" id="google_access_token" placeholder="ya29.a0A...">
+                            <input type="text" class="form-control" data-service="google" data-field="access_token" placeholder="ya29.a0A...">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Auth Code</label>
-                            <input type="text" class="form-control" id="google_auth_code" placeholder="4/0A... (одноразовый)">
+                            <input type="text" class="form-control" data-service="google" data-field="auth_code" placeholder="4/0A... (одноразовый)">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Sitemap</label>
-                            <input type="text" class="form-control" id="google_sitemap_path" placeholder="/sitemap/">
+                            <input type="text" class="form-control" data-service="google" data-field="sitemap_path" placeholder="/sitemap/">
                         </div>
                     </div>
                 </div>
             </section>
         </section>
 
-        <!-- Вкладки сервисов -->
+        <!-- Вкладка Яндекс -->
         <section id="tab-yandex" class="tab-content hidden">
             <div class="page-header">
                 <h2 class="section__title" style="margin:0;">🌏 Яндекс.Вебмастер</h2>
                 <button class="btn btn--secondary btn--small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
             </div>
-            <div class="card keys-summary"></div>
-            <div class="grid" id="yandex-scripts"></div>
+
+            <!-- Сворачиваемая панель ключей -->
+            <div class="accordion" id="yandex-keys-accordion">
+                <div class="accordion__header" onclick="toggleAccordion('yandex-keys')">
+                    <span>🔑 Ключи Яндекса <span class="accordion__arrow">&#9660;</span></span>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn--primary btn--small" onclick="event.stopPropagation(); saveKeys('yandex', event)">💾 Сохранить</button>
+                    </div>
+                </div>
+                <div class="accordion__body hidden" id="yandex-keys-body">
+                    <div class="form-group">
+                        <label class="form-label">OAuth Token</label>
+                        <input type="text" class="form-control" data-service="yandex" data-field="oauth_token" placeholder="y0_AgAAA...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">User ID</label>
+                        <input type="text" class="form-control" data-service="yandex" data-field="user_id" placeholder="123456789">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Счетчик метрики</label>
+                        <input type="text" class="form-control" data-service="yandex" data-field="metric_id" placeholder="12345678">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Страница контактов</label>
+                        <input type="text" class="form-control" data-service="yandex" data-field="contact_path" placeholder="contacts">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sitemap</label>
+                        <input type="text" class="form-control" data-service="yandex" data-field="sitemap_path" placeholder="/sitemap/">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Навигация по категориям (генерируется из registry.json) -->
+            <div class="category-nav" id="yandex-category-nav"></div>
+
+            <!-- Контент активной подкатегории -->
+            <div id="yandex-script-content"></div>
+
+            <!-- Секция тестов -->
+            <div class="tests-section" id="yandex-tests-section">
+                <h3 class="section__title" style="text-align:left;">🧪 Тесты</h3>
+                <div id="yandex-tests-grid"></div>
+            </div>
         </section>
 
+        <!-- Вкладка Google -->
         <section id="tab-google" class="tab-content hidden">
             <div class="page-header">
                 <h2 class="section__title" style="margin:0;">🔍 Google Search Console</h2>
                 <button class="btn btn--secondary btn--small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
             </div>
-            <div class="card keys-summary"></div>
-            <div class="grid" id="google-scripts"></div>
+
+            <!-- Сворачиваемая панель ключей -->
+            <div class="accordion" id="google-keys-accordion">
+                <div class="accordion__header" onclick="toggleAccordion('google-keys')">
+                    <span>🔑 Ключи Google <span class="accordion__arrow">&#9660;</span></span>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn--primary btn--small" onclick="event.stopPropagation(); saveKeys('google', event)">💾 Сохранить</button>
+                    </div>
+                </div>
+                <div class="accordion__body hidden" id="google-keys-body">
+                    <div class="form-group">
+                        <label class="form-label">Client ID</label>
+                        <input type="text" class="form-control" data-service="google" data-field="client_id" placeholder="xxx.apps.googleusercontent.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Client Secret</label>
+                        <input type="password" class="form-control" data-service="google" data-field="client_secret" placeholder="GOCSPX-...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Access Token</label>
+                        <input type="password" class="form-control" data-service="google" data-field="access_token" placeholder="ya29.a0A...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Auth Code</label>
+                        <input type="text" class="form-control" data-service="google" data-field="auth_code" placeholder="4/0A... (одноразовый)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sitemap</label>
+                        <input type="text" class="form-control" data-service="google" data-field="sitemap_path" placeholder="/sitemap/">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Навигация по категориям (генерируется из registry.json) -->
+            <div class="category-nav" id="google-category-nav"></div>
+
+            <!-- Контент активной подкатегории -->
+            <div id="google-script-content"></div>
+
+            <!-- Секция тестов -->
+            <div class="tests-section" id="google-tests-section">
+                <h3 class="section__title" style="text-align:left;">🧪 Тесты</h3>
+                <div id="google-tests-grid"></div>
+            </div>
         </section>
     </main>
 

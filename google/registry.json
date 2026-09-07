@@ -1,0 +1,77 @@
+{
+    "categories": [
+        {
+            "id": "sites",
+            "name": "Сайты",
+            "description": "Управление сайтами: добавление, подтверждение, удаление",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Массовое добавление сайтов в Google Search Console через API",
+                    "script": "gsc_add_sites",
+                    "type": "api",
+                    "fields": ["gsc_subdomains"]
+                },
+                {
+                    "id": "verify",
+                    "name": "Подтверждение",
+                    "description": "Подтверждение сайтов: GA -> ANALYTICS -> META -> FILE",
+                    "script": "gsc_verify",
+                    "type": "api",
+                    "fields": ["gsc_subdomains"]
+                },
+                {
+                    "id": "delete",
+                    "name": "Удаление",
+                    "description": "Удаление конкретных сайтов через UI",
+                    "script": "gsc_delete_sites",
+                    "type": "browser",
+                    "port": 9227,
+                    "fields": ["gsc_sites_to_delete"]
+                },
+                {
+                    "id": "delete_unverified",
+                    "name": "Удаление неподтверждённых",
+                    "description": "Удаление только неподтверждённых сайтов",
+                    "script": "gsc_delete_unverified",
+                    "type": "browser",
+                    "port": 9227,
+                    "fields": ["gsc_sites_to_delete"]
+                }
+            ]
+        },
+        {
+            "id": "sitemaps",
+            "name": "Сайтмапы",
+            "description": "Управление sitemap в Google Search Console",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление",
+                    "description": "Добавление sitemap для каждого поддомена в GSC",
+                    "script": "gsc_add_sitemap",
+                    "type": "api",
+                    "fields": ["gsc_subdomains", "gsc_sitemap_path"]
+                },
+                {
+                    "id": "resend",
+                    "name": "Переотправка",
+                    "description": "Перезапрос sitemap (планируется)",
+                    "script": null,
+                    "type": "api",
+                    "fields": []
+                },
+                {
+                    "id": "delete",
+                    "name": "Удаление",
+                    "description": "Удаление sitemap из GSC (планируется)",
+                    "script": null,
+                    "type": "api",
+                    "fields": []
+                }
+            ]
+        }
+    ],
+    "excludedScripts": ["loadConfig", "loadGoogleConfig"]
+}

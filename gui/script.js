@@ -1,6 +1,5 @@
 let runningScripts = {};
 
-// Вспомогательная функция ожидания загрузки элементов страницы (DOM)
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', callback);
@@ -18,13 +17,10 @@ window.addEventListener('pywebviewready', () => {
 
         loaderStatus.innerText = "Проверка обновлений...";
         try {
-            // 1. Запрос проверки версий в Python API
             const updateCheck = await window.pywebview.api.check_updates();
-
             const verLabel = document.getElementById('launcher-version');
             if (verLabel) verLabel.innerText = `v${updateCheck.local_version}`;
 
-            // 2. Проверяем наличие новой версии лаунчера
             if (updateCheck.success) {
                 if (updateCheck.update_available) {
                     addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
@@ -48,9 +44,9 @@ window.addEventListener('pywebviewready', () => {
         addLoaderLog(`ℹ️ Загрузка ключей ...`);
         await loadGlobalKeys();
         addLoaderLog(`ℹ️ Загрузка скриптов ...`);
-        await loadScriptsLists();       
+        await loadScriptsLists();
     })
-})
+});
 
 async function doUpdate() {
     const versionOverlay = document.getElementById('version-overlay');
@@ -63,16 +59,9 @@ async function doUpdate() {
 
     if (res && res.success) {
         if (loaderStatus) loaderStatus.innerText = "Обновление установлено! Перезапуск...";
-        
         setTimeout(() => {
-            // Отправляем команду на запуск нового процесса
             window.pywebview.api.restart_app();
-            
-            // Сразу же закрываем текущее окно UI
-            setTimeout(() => { 
-                window.close(); 
-            }, 100);
-            
+            setTimeout(() => { window.close(); }, 100);
         }, 1200);
     } else {
         if (loaderStatus) {
@@ -115,6 +104,41 @@ function skipUpdate() {
     document.getElementById('loader').classList.add('hidden');
 }
 
+// ======================== КЛЮЧИ ========================
+
+const serviceFields = {
+    yandex: ['oauth_token', 'user_id', 'metric_id', 'contact_path', 'sitemap_path'],
+    google: ['client_id', 'client_secret', 'access_token', 'auth_code', 'sitemap_path']
+};
+
+function setKeyValue(service, field, value) {
+    document.querySelectorAll(`[data-service="${service}"][data-field="${field}"]`)
+        .forEach(el => { el.value = value ?? ''; });
+}
+
+function getKeyValue(service, field) {
+    const el = document.querySelector(`[data-service="${service}"][data-field="${field}"]`);
+    return el ? el.value.trim() : '';
+}
+
+function syncKeys(service, source) {
+    serviceFields[service].forEach(field => {
+        const el = source.querySelector(`[data-service="${service}"][data-field="${field}"]`);
+        const value = el ? el.value.trim() : '';
+        setKeyValue(service, field, value);
+    });
+}
+
+function setInputValue(id, value) {
+    const el = document.getElementById(id);
+    if (el && value !== undefined && value !== null) el.value = value;
+}
+
+function getInputValue(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+}
+
 async function loadGlobalKeys() {
     try {
         const [yandexCfg, googleCfg] = await Promise.all([
@@ -122,59 +146,47 @@ async function loadGlobalKeys() {
             window.pywebview.api.get_config('google')
         ]);
 
-        setInputValue('yandex_oauth_token', yandexCfg.oauth_token);
-        setInputValue('yandex_user_id', yandexCfg.user_id);
-        setInputValue('yandex_metric_id', yandexCfg.metric_id);
-        setInputValue('yandex_contact_path', yandexCfg.contact_path);
-        setInputValue('yandex_sitemap_path', yandexCfg.sitemap_path);
+        setKeyValue('yandex', 'oauth_token', yandexCfg.oauth_token);
+        setKeyValue('yandex', 'user_id', yandexCfg.user_id);
+        setKeyValue('yandex', 'metric_id', yandexCfg.metric_id);
+        setKeyValue('yandex', 'contact_path', yandexCfg.contact_path);
+        setKeyValue('yandex', 'sitemap_path', yandexCfg.sitemap_path);
 
-        setInputValue('google_client_id', googleCfg.client_id);
-        setInputValue('google_client_secret', googleCfg.client_secret);
-        setInputValue('google_access_token', googleCfg.access_token);
-        setInputValue('google_auth_code', googleCfg.auth_code);
-        setInputValue('google_sitemap_path', googleCfg.sitemap_path);
+        setKeyValue('google', 'client_id', googleCfg.client_id);
+        setKeyValue('google', 'client_secret', googleCfg.client_secret);
+        setKeyValue('google', 'access_token', googleCfg.access_token);
+        setKeyValue('google', 'auth_code', googleCfg.auth_code);
+        setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
     }
 }
 
-function setInputValue(id, value) {
-    const el = document.getElementById(id);
-    if (el && value) el.value = value;
-}
+async function saveKeys(service, event) {
+    const context = event.target.closest('section');
+    const data = {};
+    serviceFields[service].forEach(field => {
+        const el = context.querySelector(`[data-service="${service}"][data-field="${field}"]`);
+        if (el) data[field] = el.value.trim();
+    });
 
-async function saveKeys(service) {
-    let Data;
-    if (service === 'yandex') {
-        Data = {
-            oauth_token: getInputValue('yandex_oauth_token'),
-            user_id: getInputValue('yandex_user_id'),
-            metric_id: getInputValue('yandex_metric_id'),
-            contact_path: getInputValue('yandex_contact_path'),
-            sitemap_path: getInputValue('yandex_sitemap_path')
-        };
-    } else {
-        Data = {
-            client_id: getInputValue('google_client_id'),
-            client_secret: getInputValue('google_client_secret'),
-            access_token: getInputValue('google_access_token'),
-            auth_code: getInputValue('google_auth_code'),
-            sitemap_path: getInputValue('google_sitemap_path'),
-        };
-    }
+    const result = await window.pywebview.api.save_config(service, data);
 
-    const Result = await (window.pywebview.api.save_config(service, Data));
-
-    if (Result.success) {
+    if (result.success) {
+        syncKeys(service, context);
         showToast(`Ключи ${service} сохранены`);
     } else {
         showToast('Ошибка сохранения', 'error');
     }
 }
 
-function getInputValue(id) {
-    const el = document.getElementById(id);
-    return el ? el.value.trim() : '';
+// ======================== НАВИГАЦИЯ ========================
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.nav__item').forEach(el => el.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    document.querySelector(`.nav__item[data-tab="${tabName}"]`).classList.add('active');
 }
 
 async function launchBrowser(service) {
@@ -192,132 +204,215 @@ async function launchBrowser(service) {
     }
 }
 
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.querySelectorAll('.nav__item').forEach(el => el.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-    document.querySelector(`.nav__item[data-tab="${tabName}"]`).classList.add('active');
+// ======================== ACCORDION ========================
+
+function toggleAccordion(id) {
+    const header = document.querySelector(`#${id}-accordion .accordion__header`);
+    const body = document.getElementById(`${id}-body`);
+    if (!body) return;
+    body.classList.toggle('hidden');
+    header.classList.toggle('open');
 }
 
-// async function loadKeysSummary() {
-//     const [yandexCfg, googleCfg] = await Promise.all([
-//         window.pywebview.api.get_config('yandex'),
-//         window.pywebview.api.get_config('google')
-//     ]);
+// ======================== РЕЕСТР И СКРИПТЫ ========================
 
-//     renderKeysSummary('yandex-keys-summary', 'yandex', yandexCfg);
-//     renderKeysSummary('google-keys-summary', 'google', googleCfg);
-// }
-
-// function renderKeysSummary(containerId, service, cfg) {
-//     const container = document.getElementById(containerId);
-//     if (!container) return;
-
-//     const fields = service === 'yandex'
-//         ? [{label: 'OAuth', val: cfg.oauth_token}, {label: 'User ID', val: cfg.user_id}, {label: 'Metric ID', val: cfg.metricCounterId}, {label: 'Contact', val: cfg.contactPath}]
-//         : [{label: 'Client ID', val: cfg.client_id}, {label: 'Secret', val: cfg.client_secret}, {label: 'Access Token', val: cfg.access_token}, {label: 'Refresh', val: cfg.refresh_token}, {label: 'Sitemap', val: cfg.sitemap_path}, {label: 'Main Res', val: cfg.main_resource}];
-
-//     container.innerHTML = fields.map(f => `
-//         <span><span class="key-label">${f.label}:</span> <span class="key-value">${f.val}</span></span>
-//     `).join('');
-// }
+window._registries = { yandex: null, google: null };
+window._scriptsLists = { yandex: [], google: [] };
 
 async function loadScriptsLists() {
     try {
-        const [yRes, gRes] = await Promise.all([
+        const [yReg, gReg, yRes, gRes] = await Promise.all([
+            window.pywebview.api.get_registry('yandex'),
+            window.pywebview.api.get_registry('google'),
             window.pywebview.api.get_scripts_list('yandex'),
             window.pywebview.api.get_scripts_list('google')
         ]);
 
-        renderScriptsPanel('yandex', yRes.scripts || []);
-        renderScriptsPanel('google', gRes.scripts || []);
+        window._registries.yandex = yReg;
+        window._registries.google = gReg;
+        window._scriptsLists.yandex = yRes.scripts || [];
+        window._scriptsLists.google = gRes.scripts || [];
+
+        renderServicePage('yandex');
+        renderServicePage('google');
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки скриптов: ${err.message}`);
     }
 }
 
-const yandexScriptFields = {
-    'yandex_verify': ['links', 'yandexSettings'],
-    'addRegions': ['links', 'city', 'contactPath'],
-    'metrika_bind': ['metricCounterId'],
-    'addMetrics': ['links', 'yandexSettings'],
-    'sitemap': ['links', 'yandexSettings'],
-    'reindex': ['links'],
-    'recrawl': ['links', 'yandexSettings'],
-    'Regi': ['links'],
-    'metriks': ['links', 'metricCounterId'],
-    'recomen': ['links'],
-    'errors': ['links'],
-    'yandex_sites_to_delete': ['yandex_sites_to_delete'],
-    'userid': ['yandexSettings']
-};
+function isScriptInRegistry(service, scriptName) {
+    const registry = window._registries[service];
+    if (!registry) return false;
+    for (const cat of registry.categories) {
+        for (const sub of (cat.subcategories || [])) {
+            if (sub.script === scriptName) return true;
+        }
+    }
+    return false;
+}
 
-const googleScriptFields = {
-    'gsc_add_sites': ['gsc_subdomains'],
-    'gsc_verify': ['gsc_subdomains'],
-    'gsc_add_sitemap': ['gsc_subdomains', 'gsc_sitemap_path'],
-    'gsc_delete_sites': ['gsc_sites_to_delete'],
-    'gsc_delete_unverified': ['gsc_sites_to_delete'],
-    'userid': []
-};
+function findSubcategoryForScript(service, scriptName) {
+    const registry = window._registries[service];
+    if (!registry) return null;
+    for (const cat of registry.categories) {
+        for (const sub of (cat.subcategories || [])) {
+            if (sub.script === scriptName) return { category: cat, subcategory: sub };
+        }
+    }
+    return null;
+}
 
-function renderScriptsPanel(service, scripts) {
-    const container = document.getElementById(`${service}-scripts`);
+// ======================== РЕНДЕР СТРАНИЦЫ СЕРВИСА ========================
+
+function renderServicePage(service) {
+    const registry = window._registries[service];
+    const scripts = window._scriptsLists[service];
+    if (!registry) return;
+
+    renderCategoryNav(service, registry);
+
+    const testScripts = scripts.filter(s => !isScriptInRegistry(service, s.name));
+    renderTestsSection(service, testScripts);
+}
+
+// ======================== НАВИГАЦИЯ ПО КАТЕГОРИЯМ ========================
+
+let activeCategory = { yandex: null, google: null };
+
+function renderCategoryNav(service, registry) {
+    const container = document.getElementById(`${service}-category-nav`);
+    if (!container) return;
+    container.innerHTML = '';
+
+    registry.categories.forEach(cat => {
+        const btn = document.createElement('div');
+        btn.className = 'category-btn';
+        btn.setAttribute('data-tooltip', cat.description);
+
+        const hasSubs = cat.subcategories && cat.subcategories.length > 0;
+        btn.innerHTML = `${cat.name} ${hasSubs ? '<span class="category-btn__arrow">&#9660;</span>' : ''}`;
+
+        if (hasSubs) {
+            const dropdown = document.createElement('div');
+            dropdown.className = 'category-dropdown';
+
+            cat.subcategories.forEach(sub => {
+                const item = document.createElement('div');
+                item.className = 'subcategory-item' + (sub.script ? '' : ' disabled');
+                item.setAttribute('data-tooltip', sub.description);
+
+                const scriptBadge = sub.script
+                    ? `<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px;">${sub.type === 'api' ? 'API' : 'Browser'}</span>`
+                    : '<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px; opacity:0.5;">Планируется</span>';
+
+                item.innerHTML = `
+                    <span class="subcategory-item__name">${sub.name}${scriptBadge}</span>
+                    <span class="subcategory-item__desc">${sub.description}</span>
+                `;
+
+                if (sub.script) {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        onSubcategorySelect(service, cat.id, sub.id);
+                    });
+                }
+
+                dropdown.appendChild(item);
+            });
+
+            btn.appendChild(dropdown);
+        }
+
+        container.appendChild(btn);
+    });
+}
+
+function onSubcategorySelect(service, categoryId, subcategoryId) {
+    const registry = window._registries[service];
+    const cat = registry.categories.find(c => c.id === categoryId);
+    const sub = cat.subcategories.find(s => s.id === subcategoryId);
+    if (!sub || !sub.script) return;
+
+    activeCategory[service] = `${categoryId}-${subcategoryId}`;
+    renderScriptPanel(service, sub.script, sub);
+
+    document.querySelectorAll(`#${service}-category-nav .category-btn`).forEach(b => b.classList.remove('active'));
+}
+
+// ======================== ПАНЕЛЬ СКРИПТА ========================
+
+function renderScriptPanel(service, scriptName, subcategory) {
+    const container = document.getElementById(`${service}-script-content`);
     if (!container) return;
 
-    const fieldsMap = service === 'yandex' ? yandexScriptFields : googleScriptFields;
+    const scriptId = `${service}-${scriptName}`;
+    const fields = subcategory.fields || [];
+    const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
+    const scriptInfo = window._scriptsLists[service].find(s => s.name === scriptName);
+    const badgeType = scriptInfo ? (scriptInfo.type === 'py' ? 'Python' : 'JS') : (subcategory.type === 'api' ? 'API' : 'JS');
+    const badgeClass = scriptInfo
+        ? (scriptInfo.type === 'py' ? 'badge--py' : 'badge--js')
+        : (subcategory.type === 'api' ? 'badge--api' : 'badge--js');
 
-    container.innerHTML = scripts.map(script => {
-        const fields = fieldsMap[script] || [];
-        const scriptId = `${service}-${script}`;
-        const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
+    const inputsHtml = fields.map(field => `
+        <div class="form-group">
+            <label class="form-label">${field} (по одному на строку или JSON)</label>
+            <textarea class="form-control" id="${scriptId}-${field}" placeholder="Введите ${field}...">${savedData[field] || ''}</textarea>
+        </div>
+    `).join('');
 
-        const inputsHtml = fields.map(field => `
-            <div class="form-group">
-                <label class="form-label">${field} (по одному на строку или JSON)</label>
-                <textarea class="form-control" id="${scriptId}-${field}" placeholder="Введите ${field}...">${savedData[field] || ''}</textarea>
-            </div>
-        `).join('');
-
-        return `
-            <div class="card" id="${scriptId}-card">
-                <div class="card__header" style="justify-content: space-between;">
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <span>${script}</span> 
-                        <span class="badge ${script.endsWith('.py') ? 'badge--py' : 'badge--js'}" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--border-color);">${script.endsWith('.py') ? 'Python' : 'JS'}</span>
-                    </div>
-                    <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">⌄</button>
+    container.innerHTML = `
+        <div class="card script-panel" id="${scriptId}-card">
+            <div class="card__header" style="justify-content: space-between;">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span>${scriptName}</span>
+                    <span class="badge ${badgeClass}" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${badgeType}</span>
                 </div>
-                <div class="script-body hidden" id="${scriptId}-body">
-                    ${inputsHtml}
-                    <div class="align-right" style="justify-content: flex-start; align-items: center;">
-                        <button class="btn btn--primary" onclick="runScript('${service}', '${script}')">▶ Запустить</button>
-                        <button class="btn btn--secondary" onclick="saveScriptData('${service}', '${script}')">💾 Сохранить</button>
-                        <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
-                    </div>
-                    <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
-                    <div class="table-wrapper hidden" id="${scriptId}-report"></div>
-                </div>
+                <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">&#9660;</button>
             </div>
-        `;
-    }).join('');
+            <div class="script-body hidden" id="${scriptId}-body">
+                ${inputsHtml}
+                <div class="align-right" style="justify-content: flex-start; align-items: center;">
+                    <button class="btn btn--primary" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
+                    <button class="btn btn--secondary" onclick="saveScriptData('${service}', '${scriptName}')">💾 Сохранить</button>
+                    <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
+                </div>
+                <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
+                <div class="table-wrapper hidden" id="${scriptId}-report"></div>
+            </div>
+        </div>
+    `;
 }
 
 function toggleScriptBody(scriptId) {
     const body = document.getElementById(`${scriptId}-body`);
-    const btn = document.querySelector(`#${scriptId}-card .script-header button`);
+    if (!body) return;
+    const btn = body.parentElement.querySelector('.btn--secondary');
     if (body.classList.contains('hidden')) {
         body.classList.remove('hidden');
-        btn.textContent = '⌃';
+        if (btn) btn.innerHTML = '&#9650;';
     } else {
         body.classList.add('hidden');
-        btn.textContent = '⌄';
+        if (btn) btn.innerHTML = '&#9660;';
     }
 }
 
+// ======================== СОХРАНЕНИЕ/ЗАПУСК СКРИПТОВ ========================
+
+function getFieldsForScript(service, scriptName) {
+    const registry = window._registries[service];
+    if (registry) {
+        for (const cat of registry.categories) {
+            for (const sub of (cat.subcategories || [])) {
+                if (sub.script === scriptName) return sub.fields || [];
+            }
+        }
+    }
+    return [];
+}
+
 async function saveScriptData(service, script) {
-    const fieldsMap = service === 'yandex' ? yandexScriptFields : googleScriptFields;
-    const fields = fieldsMap[script] || [];
+    const fields = getFieldsForScript(service, script);
     const scriptId = `${service}-${script}`;
     const data = {};
 
@@ -333,10 +428,26 @@ async function saveScriptData(service, script) {
     if (res.success) {
         localStorage.setItem(`script_data_${scriptId}`, JSON.stringify(data));
         showToast('Данные скрипта сохранены');
-        // await loadKeysSummary();
     } else {
         showToast('Ошибка сохранения', 'error');
     }
+}
+
+function getScriptInputs(scriptId) {
+    const parts = scriptId.split('-');
+    const service = parts[0];
+    const script = parts.slice(1).join('-');
+    const fields = getFieldsForScript(service, script);
+    const data = {};
+
+    fields.forEach(field => {
+        const val = getInputValue(`${scriptId}-${field}`);
+        if (val) {
+            try { data[field] = JSON.parse(val); }
+            catch { data[field] = val.split('\n').map(s => s.trim()).filter(Boolean); }
+        }
+    });
+    return data;
 }
 
 async function runScript(service, script) {
@@ -350,7 +461,7 @@ async function runScript(service, script) {
     btn.disabled = true;
     btn.textContent = '⏳ Запуск...';
     statusEl.textContent = 'Запуск...';
-    statusEl.style.color = 'var(--accent-warning)';
+    statusEl.style.color = 'var(--accent)';
     logsEl.innerHTML = '';
     reportEl.classList.add('hidden');
 
@@ -359,31 +470,77 @@ async function runScript(service, script) {
         const res = await window.pywebview.api.run_script(service, script);
         if (!res.success) throw new Error(res.message);
         statusEl.textContent = 'Выполняется...';
-        statusEl.style.color = 'var(--accent-yandex)';
     } catch (err) {
         statusEl.textContent = `Ошибка: ${err.message}`;
-        statusEl.style.color = 'var(--accent-error)';
+        statusEl.style.color = 'var(--status-error-text)';
         btn.disabled = false;
         btn.textContent = '▶ Запустить';
         runningScripts[scriptId] = false;
     }
 }
 
-function getScriptInputs(scriptId) {
-    const fieldsMap = scriptId.startsWith('yandex-') ? yandexScriptFields : googleScriptFields;
-    const script = scriptId.split('-').slice(1).join('-');
-    const fields = fieldsMap[script] || [];
-    const data = {};
+// ======================== ТЕСТЫ ========================
 
-    fields.forEach(field => {
-        const val = getInputValue(`${scriptId}-${field}`);
-        if (val) {
-            try { data[field] = JSON.parse(val); }
-            catch { data[field] = val.split('\n').map(s => s.trim()).filter(Boolean); }
-        }
-    });
-    return data;
+function renderTestsSection(service, testScripts) {
+    const container = document.getElementById(`${service}-tests-grid`);
+    const section = document.getElementById(`${service}-tests-section`);
+    if (!container || !section) return;
+
+    if (testScripts.length === 0) {
+        section.classList.add('hidden');
+        return;
+    }
+    section.classList.remove('hidden');
+
+    container.innerHTML = testScripts.map(script => {
+        const scriptId = `${service}-${script.name}`;
+        const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
+        const badgeType = script.type === 'py' ? 'Python' : 'JS';
+
+        return `
+            <div class="card" id="${scriptId}-card">
+                <div class="card__header" style="justify-content: space-between;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span>${script.name}</span>
+                        <span class="badge" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--border-color);">${badgeType}</span>
+                    </div>
+                    <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">&#9660;</button>
+                </div>
+                <div class="script-body hidden" id="${scriptId}-body">
+                    <div class="form-group">
+                        <label class="form-label">Данные (по одному на строку или JSON)</label>
+                        <textarea class="form-control" id="${scriptId}-data" placeholder="Введите данные...">${savedData.data || ''}</textarea>
+                    </div>
+                    <div class="align-right" style="justify-content: flex-start; align-items: center;">
+                        <button class="btn btn--primary" onclick="runScript('${service}', '${script.name}')">&#9654; Запустить</button>
+                        <button class="btn btn--secondary" onclick="saveTestData('${service}', '${script.name}')">💾 Сохранить</button>
+                        <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
+                    </div>
+                    <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
+                    <div class="table-wrapper hidden" id="${scriptId}-report"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
+
+async function saveTestData(service, scriptName) {
+    const scriptId = `${service}-${scriptName}`;
+    const val = getInputValue(`${scriptId}-data`);
+    let data;
+    try { data = JSON.parse(val); }
+    catch { data = val.split('\n').map(s => s.trim()).filter(Boolean); }
+
+    const res = await window.pywebview.api.save_script_data(service, scriptName, { data });
+    if (res.success) {
+        localStorage.setItem(`script_data_${scriptId}`, JSON.stringify({ data }));
+        showToast('Данные скрипта сохранены');
+    } else {
+        showToast('Ошибка сохранения', 'error');
+    }
+}
+
+// ======================== ЛОГИ И ОТЧЁТЫ ========================
 
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
@@ -415,11 +572,11 @@ function scriptFinished(key) {
         btn.textContent = '▶ Запустить';
     }
     runningScripts[scriptId] = false;
-    generateReport(scriptId);
 }
 
 function generateReport(scriptId) {
-    if (reportData.length === 0) return;
+    const reportEl = document.getElementById(`${scriptId}-report`);
+    if (!reportEl || !window._reportData || window._reportData.length === 0) return;
 
     reportEl.innerHTML = `
         <table class="table">
@@ -433,7 +590,7 @@ function generateReport(scriptId) {
                 </tr>
             </thead>
             <tbody>
-                ${reportData.map(r => `
+                ${window._reportData.map(r => `
                     <tr>
                         <td>${r.subdomain}</td>
                         <td style="color: var(--status-${r.status.toLowerCase().includes('ok') || r.status.toLowerCase().includes('успех') ? 'success' : r.status.toLowerCase().includes('error') ? 'error' : 'warning'}-text)">${r.status}</td>
@@ -468,6 +625,8 @@ function copyTable(scriptId) {
     navigator.clipboard.writeText(text);
     showToast('Таблица скопирована');
 }
+
+// ======================== TOAST ========================
 
 function showToast(msg, type = 'info') {
     const toast = document.createElement('div');
