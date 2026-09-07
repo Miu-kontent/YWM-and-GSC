@@ -200,6 +200,15 @@ class Api:
         except Exception as e:
             print(f"[API] Ошибка генерации arr.js: {e}")
 
+    def check_browser(self, service):
+        port = 9229 if service == "yandex" else 9227
+        try:
+            import requests as req
+            r = req.get(f"http://127.0.0.1:{port}/json/version", timeout=2)
+            return {"success": True, "running": r.status_code == 200}
+        except Exception:
+            return {"success": True, "running": False}
+
     def launch_browser(self, service):
         port = 9229 if service == "yandex" else 9227
         profiles_dir = os.path.join(self.base_dir, "debug_profiles")
@@ -216,7 +225,8 @@ class Api:
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile_path}",
             # "--no-first-run",
-            "--no-default-browser-check"
+            "--no-default-browser-check",
+            "--remote-allow-origins=*"
         ]
 
         try:
@@ -280,93 +290,46 @@ class Api:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
-#     def start_yandex_auth(self):
-#         config = self.get_config("yandex")
-#         client_id = config.get("client_id")
-        
-#         if not client_id:
-#             return {"success": False, "message": "Сначала укажите и сохраните client_id в конфигурации Яндекса!"}
+    def _run_yandex_script(self, script_name):
+        script_path = os.path.join(self.yandex_scripts_dir, f"{script_name}.py")
+        if not os.path.exists(script_path):
+            return {"success": False, "message": f"{script_name}.py не найден", "log": []}
+        try:
+            proc = subprocess.run(
+                [sys.executable, script_path],
+                cwd=self.yandex_dir,
+                capture_output=True, text=True, timeout=180, encoding="utf-8"
+            )
+            log_lines = proc.stdout.splitlines()
+            return {"success": proc.returncode == 0, "log": log_lines, "stdout": proc.stdout}
+        except subprocess.TimeoutExpired:
+            return {"success": False, "message": "Таймаут (180 сек)", "log": ["❌ Таймаут: скрипт не завершился"]}
+        except Exception as e:
+            return {"success": False, "message": str(e), "log": [f"❌ {e}"]}
 
-#         # Формируем ссылку авторизации (Implicit Flow)[cite: 1]
-#         auth_url = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={client_id}"
+    def start_yandex_get_token(self):
+        result = self._run_yandex_script("yandex_get_token")
+        token = None
+        for line in result.get("log", []):
+            if line.startswith("OAUTH_TOKEN:"):
+                token = line.split(":", 1)[1]
+        if token:
+            config = self.get_config("yandex")
+            config["oauth_token"] = token
+            self.save_config("yandex", config)
+        return {"success": bool(token), "oauth_token": token or "", "log": result.get("log", [])}
 
-#         server_address = ("localhost", 3000)
-#         httpd = HTTPServer(server_address, OAuthCallbackHandler)
-#         OAuthCallbackHandler.token_received = None
-
-#         # Открываем системный браузер
-#         webbrowser.open(auth_url)
-
-#         # Ждем перехвата токена локальным сервером
-#         while OAuthCallbackHandler.token_received is None:
-#             httpd.handle_request()
-
-#         token = OAuthCallbackHandler.token_received
-#         httpd.server_close()
-
-#         # Запрашиваем user_id через API Вебмастера
-#         headers = {"Authorization": f"OAuth {token}"}
-#         user_resp = requests.get("https://api.webmaster.yandex.net/v4/user/", headers=headers)
-        
-#         if user_resp.status_code != 200:
-#             return {"success": False, "message": "Токен получен, но не удалось запросить user_id"}
-
-#         user_id = str(user_resp.json().get("user_id"))
-
-#         # Сохраняем в конфиг
-#         config["oauth_token"] = token
-#         config["user_id"] = user_id
-#         self.save_config("yandex", config)
-
-#         return {
-#             "success": True,
-#             "oauth_token": token,
-#             "user_id": user_id,
-#             "message": "Авторизация успешно завершена!"
-#         }
-
-# from http.server import HTTPServer, BaseHTTPRequestHandler
-# from urllib.parse import parse_qs, urlparse
-
-# class OAuthCallbackHandler(BaseHTTPRequestHandler):
-#     """Локальный сервер для перехвата OAuth-токена Яндекса"""
-#     token_received = None
-
-#     def do_GET(self):
-#         html_response = """
-#         <!DOCTYPE html>
-#         <html>
-#         <head><meta charset="utf-8"><title>Авторизация Яндекс</title></head>
-#         <body style="font-family: Arial; text-align: center; padding-top: 50px;">
-#             <h3 style="color: #333;">Авторизация прошла успешно!</h3>
-#             <p>Получаем данные и закрываем окно...</p>
-#             <script>
-#                 if (window.location.hash) {
-#                     var hash = window.location.hash.substring(1);
-#                     window.location.href = "/save_token?" + hash;
-#                 }
-#             </script>
-#         </body>
-#         </html>
-#         """
-#         if "/save_token" in self.path:
-#             query = parse_qs(urlparse(self.path).query)
-#             if "access_token" in query:
-#                 OAuthCallbackHandler.token_received = query["access_token"][0]
-#                 self.send_response(200)
-#                 self.send_header("Content-Type", "text/html; charset=utf-8")
-#                 self.end_headers()
-#                 self.wfile.write("<h2 style='color: green; text-align: center;'>Токен успешно получен! Окно можно закрыть.</h2>".encode("utf-8"))
-#                 return
-        
-#         self.send_response(200)
-#         self.send_header("Content-Type", "text/html; charset=utf-8")
-#         self.end_headers()
-#         self.wfile.write(html_response.encode("utf-8"))
-
-#     def log_message(self, format, *args):
-#         return  # Отключаем лишний вывод в консоль
-
+    def start_yandex_get_userid(self):
+        result = self._run_yandex_script("yandex_get_userid")
+        user_id = None
+        for line in result.get("log", []):
+            if line.startswith("USER_ID:"):
+                user_id = line.split(":", 1)[1]
+        if user_id:
+            config = self.get_config("yandex")
+            config["user_id"] = user_id
+            self.save_config("yandex", config)
+        return {"success": bool(user_id), "user_id": user_id or "", "log": result.get("log", [])}
 
 def main():
     api = Api()

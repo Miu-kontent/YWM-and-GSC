@@ -157,5 +157,5 @@
             ]
         }
     ],
-    "excludedScripts": ["loadConfig", "userid"]
+    "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid"]
 }

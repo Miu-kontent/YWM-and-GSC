@@ -180,6 +180,63 @@ async function saveKeys(service, event) {
     }
 }
 
+
+async function getYandexToken() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Получение';
+    try {
+        const browser = await window.pywebview.api.check_browser('yandex');
+        if (!browser.running) {
+            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9229)"', 'error');
+            return;
+        }
+        showToast('Откройте страницу авторизации в браузере...', 'info');
+        const result = await window.pywebview.api.start_yandex_get_token();
+        if (result.log) result.log.forEach(line => console.log(`[yandex-auth] ${line}`));
+        if (result.success) {
+            setKeyValue('yandex', 'oauth_token', result.oauth_token);
+            syncKeys('yandex', document.getElementById('tab-dashboard'));
+            showToast('OAuth Token получен!', 'success');
+        } else {
+            showToast(result.message || 'Токен не получен', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Получить';
+    }
+}
+
+async function getYandexUserId() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Получение';
+    try {
+        const browser = await window.pywebview.api.check_browser('yandex');
+        if (!browser.running) {
+            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9229)"', 'error');
+            return;
+        }
+        showToast('Получаем User ID...', 'info');
+        const result = await window.pywebview.api.start_yandex_get_userid();
+        if (result.log) result.log.forEach(line => console.log(`[yandex-auth] ${line}`));
+        if (result.success) {
+            setKeyValue('yandex', 'user_id', result.user_id);
+            syncKeys('yandex', document.getElementById('tab-dashboard'));
+            showToast('User ID получен!', 'success');
+        } else {
+            showToast(result.message || 'User ID не получен', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Получить';
+    }
+}
+
 // ======================== НАВИГАЦИЯ ========================
 
 function switchTab(tabName) {
@@ -192,7 +249,6 @@ function switchTab(tabName) {
 async function launchBrowser(service) {
     const btn = event.target;
     btn.disabled = true;
-    btn.textContent = '⏳ Запуск...';
     try {
         const res = await window.pywebview.api.launch_browser(service);
         showToast(res.message, res.success ? 'success' : 'error');
@@ -200,7 +256,6 @@ async function launchBrowser(service) {
         showToast(`Ошибка: ${err.message}`, 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = `🌐 Браузер (порт ${service === 'yandex' ? 9229 : 9227})`;
     }
 }
 
