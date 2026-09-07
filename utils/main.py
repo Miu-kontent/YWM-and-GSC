@@ -367,6 +367,7 @@ class Api:
 #     def log_message(self, format, *args):
 #         return  # Отключаем лишний вывод в консоль
 
+
 def main():
     api = Api()
     html_file = os.path.join(api.gui_dir, "index.html")
