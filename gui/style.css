@@ -195,7 +195,7 @@ textarea.form-control { min-height: 100px; resize: vertical; font-family: monosp
 /* --- Category Navigation --- */
 .category-nav {
     display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
-    margin: 20px 0; padding: 16px 0;
+    margin: 16px 0; padding-bottom: 16px;
     border-bottom: 1px solid var(--border-color);
 }
 .category-btn {

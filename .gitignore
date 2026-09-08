@@ -10,6 +10,7 @@ AGENTS.md
 debug_profiles/
 test.py
 Launcher.cs
+API вебмастера.txt
 # Playwright
 playwright-report/
 test-results/

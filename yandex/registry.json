@@ -159,8 +159,17 @@
         {
             "id": "tests",
             "name": "Тесты",
-            "description": "Тестовые скрипты (не из реестра)",
-            "subcategories": []
+            "description": "Тестовые скрипты",
+            "subcategories": [
+                {
+                    "id": "yandex_export_test",
+                    "name": "Экспорт данных (тест)",
+                    "description": "Получение всей информации через API Яндекс.Вебмастера",
+                    "script": "yandex_export_test",
+                    "type": "api",
+                    "fields": []
+                }
+            ]
         }
     ],
     "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid"]
