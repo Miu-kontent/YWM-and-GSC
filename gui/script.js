@@ -43,6 +43,8 @@ window.addEventListener('pywebviewready', () => {
         loaderStatus.innerText = "Загрузка данных...";
         addLoaderLog(`ℹ️ Загрузка ключей ...`);
         await loadGlobalKeys();
+        addLoaderLog(`ℹ️ Загрузка списков скриптов ...`);
+        await loadScriptsData();
         addLoaderLog(`ℹ️ Загрузка скриптов ...`);
         await loadScriptsLists();
     })
@@ -106,6 +108,8 @@ function skipUpdate() {
 
 // ======================== КЛЮЧИ ========================
 
+window._scriptsData = { yandex: {}, google: {} };
+
 const serviceFields = {
     yandex: ['oauth_token', 'user_id', 'metric_id', 'contact_path', 'sitemap_path'],
     google: ['client_id', 'client_secret', 'access_token', 'auth_code', 'sitemap_path']
@@ -159,6 +163,19 @@ async function loadGlobalKeys() {
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
+    }
+}
+
+async function loadScriptsData() {
+    try {
+        const [yData, gData] = await Promise.all([
+            window.pywebview.api.get_scripts_data('yandex'),
+            window.pywebview.api.get_scripts_data('google')
+        ]);
+        window._scriptsData.yandex = yData || {};
+        window._scriptsData.google = gData || {};
+    } catch (err) {
+        addLoaderLog(`⚠️ Ошибка загрузки списков скриптов: ${err.message}`);
     }
 }
 
@@ -295,28 +312,6 @@ async function loadScriptsLists() {
     }
 }
 
-function isScriptInRegistry(service, scriptName) {
-    const registry = window._registries[service];
-    if (!registry) return false;
-    for (const cat of registry.categories) {
-        for (const sub of (cat.subcategories || [])) {
-            if (sub.script === scriptName) return true;
-        }
-    }
-    return false;
-}
-
-function findSubcategoryForScript(service, scriptName) {
-    const registry = window._registries[service];
-    if (!registry) return null;
-    for (const cat of registry.categories) {
-        for (const sub of (cat.subcategories || [])) {
-            if (sub.script === scriptName) return { category: cat, subcategory: sub };
-        }
-    }
-    return null;
-}
-
 // ======================== РЕНДЕР СТРАНИЦЫ СЕРВИСА ========================
 
 function renderServicePage(service) {
@@ -324,10 +319,23 @@ function renderServicePage(service) {
     const scripts = window._scriptsLists[service];
     if (!registry) return;
 
-    renderCategoryNav(service, registry);
+    const testsCat = registry.categories.find(c => c.id === 'tests');
+    if (testsCat) {
+        testsCat.subcategories = scripts
+            .filter(s => !registry.categories.some(cat =>
+                cat.id !== 'tests' && (cat.subcategories || []).some(sub => sub.script === s.name)
+            ))
+            .map(s => ({
+                id: s.name,
+                name: s.name,
+                description: s.type === 'py' ? 'Python скрипт' : 'JS скрипт',
+                script: s.name,
+                type: s.type === 'py' ? 'api' : 'browser',
+                fields: ['data']
+            }));
+    }
 
-    const testScripts = scripts.filter(s => !isScriptInRegistry(service, s.name));
-    renderTestsSection(service, testScripts);
+    renderCategoryNav(service, registry);
 }
 
 // ======================== НАВИГАЦИЯ ПО КАТЕГОРИЯМ ========================
@@ -376,10 +384,25 @@ function renderCategoryNav(service, registry) {
             });
 
             btn.appendChild(dropdown);
+
+            let hideTimeout;
+            btn.addEventListener('mouseenter', () => {
+                clearTimeout(hideTimeout);
+                dropdown.classList.add('visible');
+            });
+            btn.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => dropdown.classList.remove('visible'), 150);
+            });
+            dropdown.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+            dropdown.addEventListener('mouseleave', () => {
+                hideTimeout = setTimeout(() => dropdown.classList.remove('visible'), 150);
+            });
         }
 
         container.appendChild(btn);
     });
+
+    positionTooltips(container);
 }
 
 function onSubcategorySelect(service, categoryId, subcategoryId) {
@@ -394,6 +417,16 @@ function onSubcategorySelect(service, categoryId, subcategoryId) {
     document.querySelectorAll(`#${service}-category-nav .category-btn`).forEach(b => b.classList.remove('active'));
 }
 
+function positionTooltips(container) {
+    const rect = container.getBoundingClientRect();
+    container.querySelectorAll('[data-tooltip]').forEach(el => {
+        el.classList.remove('tooltip-left', 'tooltip-right');
+        const r = el.getBoundingClientRect();
+        if (r.left - rect.left < 50) el.classList.add('tooltip-left');
+        else if (rect.right - r.right < 50) el.classList.add('tooltip-right');
+    });
+}
+
 // ======================== ПАНЕЛЬ СКРИПТА ========================
 
 function renderScriptPanel(service, scriptName, subcategory) {
@@ -402,7 +435,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
 
     const scriptId = `${service}-${scriptName}`;
     const fields = subcategory.fields || [];
-    const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
+    const savedData = window._scriptsData[service][scriptName] || {};
     const scriptInfo = window._scriptsLists[service].find(s => s.name === scriptName);
     const badgeType = scriptInfo ? (scriptInfo.type === 'py' ? 'Python' : 'JS') : (subcategory.type === 'api' ? 'API' : 'JS');
     const badgeClass = scriptInfo
@@ -423,9 +456,8 @@ function renderScriptPanel(service, scriptName, subcategory) {
                     <span>${scriptName}</span>
                     <span class="badge ${badgeClass}" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${badgeType}</span>
                 </div>
-                <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">&#9660;</button>
             </div>
-            <div class="script-body hidden" id="${scriptId}-body">
+            <div class="script-body" id="${scriptId}-body">
                 ${inputsHtml}
                 <div class="align-right" style="justify-content: flex-start; align-items: center;">
                     <button class="btn btn--primary" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
@@ -437,19 +469,6 @@ function renderScriptPanel(service, scriptName, subcategory) {
             </div>
         </div>
     `;
-}
-
-function toggleScriptBody(scriptId) {
-    const body = document.getElementById(`${scriptId}-body`);
-    if (!body) return;
-    const btn = body.parentElement.querySelector('.btn--secondary');
-    if (body.classList.contains('hidden')) {
-        body.classList.remove('hidden');
-        if (btn) btn.innerHTML = '&#9650;';
-    } else {
-        body.classList.add('hidden');
-        if (btn) btn.innerHTML = '&#9660;';
-    }
 }
 
 // ======================== СОХРАНЕНИЕ/ЗАПУСК СКРИПТОВ ========================
@@ -481,7 +500,7 @@ async function saveScriptData(service, script) {
 
     const res = await window.pywebview.api.save_script_data(service, script, data);
     if (res.success) {
-        localStorage.setItem(`script_data_${scriptId}`, JSON.stringify(data));
+        window._scriptsData[service][script] = data;
         showToast('Данные скрипта сохранены');
     } else {
         showToast('Ошибка сохранения', 'error');
@@ -531,67 +550,6 @@ async function runScript(service, script) {
         btn.disabled = false;
         btn.textContent = '▶ Запустить';
         runningScripts[scriptId] = false;
-    }
-}
-
-// ======================== ТЕСТЫ ========================
-
-function renderTestsSection(service, testScripts) {
-    const container = document.getElementById(`${service}-tests-grid`);
-    const section = document.getElementById(`${service}-tests-section`);
-    if (!container || !section) return;
-
-    if (testScripts.length === 0) {
-        section.classList.add('hidden');
-        return;
-    }
-    section.classList.remove('hidden');
-
-    container.innerHTML = testScripts.map(script => {
-        const scriptId = `${service}-${script.name}`;
-        const savedData = JSON.parse(localStorage.getItem(`script_data_${scriptId}`) || '{}');
-        const badgeType = script.type === 'py' ? 'Python' : 'JS';
-
-        return `
-            <div class="card" id="${scriptId}-card">
-                <div class="card__header" style="justify-content: space-between;">
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <span>${script.name}</span>
-                        <span class="badge" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: var(--border-color);">${badgeType}</span>
-                    </div>
-                    <button class="btn btn--secondary btn--small" onclick="toggleScriptBody('${scriptId}')">&#9660;</button>
-                </div>
-                <div class="script-body hidden" id="${scriptId}-body">
-                    <div class="form-group">
-                        <label class="form-label">Данные (по одному на строку или JSON)</label>
-                        <textarea class="form-control" id="${scriptId}-data" placeholder="Введите данные...">${savedData.data || ''}</textarea>
-                    </div>
-                    <div class="align-right" style="justify-content: flex-start; align-items: center;">
-                        <button class="btn btn--primary" onclick="runScript('${service}', '${script.name}')">&#9654; Запустить</button>
-                        <button class="btn btn--secondary" onclick="saveTestData('${service}', '${script.name}')">💾 Сохранить</button>
-                        <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
-                    </div>
-                    <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
-                    <div class="table-wrapper hidden" id="${scriptId}-report"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-async function saveTestData(service, scriptName) {
-    const scriptId = `${service}-${scriptName}`;
-    const val = getInputValue(`${scriptId}-data`);
-    let data;
-    try { data = JSON.parse(val); }
-    catch { data = val.split('\n').map(s => s.trim()).filter(Boolean); }
-
-    const res = await window.pywebview.api.save_script_data(service, scriptName, { data });
-    if (res.success) {
-        localStorage.setItem(`script_data_${scriptId}`, JSON.stringify({ data }));
-        showToast('Данные скрипта сохранены');
-    } else {
-        showToast('Ошибка сохранения', 'error');
     }
 }
 

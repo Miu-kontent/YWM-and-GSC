@@ -39,24 +39,6 @@
 
     <main class="container">
         <section id="tab-dashboard" class="tab-content">
-            <!-- Универсальная адаптивная сетка -->
-            <!-- <div class="grid grid--responsive section">
-                <div class="card card--interactive" onclick="switchTab('yandex')">
-                    <div class="card__header">
-                        <span class="card__icon">🌏</span>
-                        <span>Яндекс: Вебмастер & Метрика</span>
-                    </div>
-                    <div class="card__body">Выгрузка/добавление/подтверждение/региональность/sitemap/метрика/...</div>
-                </div>
-                <div class="card card--interactive" onclick="switchTab('google')">
-                    <div class="card__header">
-                        <span class="card__icon">🔍</span>
-                        <span>Google Search Console</span>
-                    </div>
-                    <div class="card__body">Выгрузка/добавление/подтверждение/sitemap/...</div>
-                </div>
-            </div> -->
-
             <!-- Универсальная секция вместо жесткого -->
             <section class="section">
                 <h3 class="section__title">🔐 Ключи доступов</h3>
@@ -133,16 +115,12 @@
 
         <!-- Вкладка Яндекс -->
         <section id="tab-yandex" class="tab-content hidden">
-            <div class="page-header">
-                <h2 class="section__title" style="margin:0;">🌏 Яндекс.Вебмастер</h2>
-                <button class="btn btn--secondary btn--small" onclick="launchBrowser('yandex')">🌐 Браузер (порт 9229)</button>
-            </div>
-
-            <!-- Сворачиваемая панель ключей -->
             <div class="accordion" id="yandex-keys-accordion">
                 <div class="accordion__header" onclick="toggleAccordion('yandex-keys')">
-                    <span>🔑 Ключи Яндекса <span class="accordion__arrow">&#9660;</span></span>
+                    <span>🔑 Ключи <span class="accordion__arrow">&#9660;</span></span>
+                    <span class="accordion__title">🌏 Вебмастер & Метрика</span>
                     <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn--secondary btn--small" onclick="event.stopPropagation(); launchBrowser('yandex')">🌐 Браузер</button>
                         <button class="btn btn--primary btn--small" onclick="event.stopPropagation(); saveKeys('yandex', event)">💾 Сохранить</button>
                     </div>
                 </div>
@@ -181,26 +159,16 @@
 
             <!-- Контент активной подкатегории -->
             <div id="yandex-script-content"></div>
-
-            <!-- Секция тестов -->
-            <div class="tests-section" id="yandex-tests-section">
-                <h3 class="section__title" style="text-align:left;">🧪 Тесты</h3>
-                <div id="yandex-tests-grid"></div>
-            </div>
         </section>
 
         <!-- Вкладка Google -->
         <section id="tab-google" class="tab-content hidden">
-            <div class="page-header">
-                <h2 class="section__title" style="margin:0;">🔍 Google Search Console</h2>
-                <button class="btn btn--secondary btn--small" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
-            </div>
-
-            <!-- Сворачиваемая панель ключей -->
             <div class="accordion" id="google-keys-accordion">
                 <div class="accordion__header" onclick="toggleAccordion('google-keys')">
-                    <span>🔑 Ключи Google <span class="accordion__arrow">&#9660;</span></span>
+                    <span>🔑 Ключи <span class="accordion__arrow">&#9660;</span></span>
+                    <span class="accordion__title">🔍 Google Search Console</span>
                     <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn--secondary btn--small" onclick="event.stopPropagation(); launchBrowser('google')">🌐 Браузер</button>
                         <button class="btn btn--primary btn--small" onclick="event.stopPropagation(); saveKeys('google', event)">💾 Сохранить</button>
                     </div>
                 </div>
@@ -233,12 +201,6 @@
 
             <!-- Контент активной подкатегории -->
             <div id="google-script-content"></div>
-
-            <!-- Секция тестов -->
-            <div class="tests-section" id="google-tests-section">
-                <h3 class="section__title" style="text-align:left;">🧪 Тесты</h3>
-                <div id="google-tests-grid"></div>
-            </div>
         </section>
     </main>
 

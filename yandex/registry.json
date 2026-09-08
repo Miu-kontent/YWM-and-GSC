@@ -155,6 +155,12 @@
                     "fields": ["links"]
                 }
             ]
+        },
+        {
+            "id": "tests",
+            "name": "Тесты",
+            "description": "Тестовые скрипты (не из реестра)",
+            "subcategories": []
         }
     ],
     "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid"]

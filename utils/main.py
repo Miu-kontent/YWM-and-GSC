@@ -29,8 +29,10 @@ class Api:
         self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
         self.yandex_app_config_path = os.path.join(self.yandex_dir, "app_config.json")
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
+        self.yandex_scripts_data_path = os.path.join(self.yandex_dir, "scripts_data.json")
         self.yandex_scripts_dir = os.path.join(self.yandex_dir, "scripts")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
+        self.google_scripts_data_path = os.path.join(self.google_dir, "scripts_data.json")
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
         self.running_processes = {}
@@ -103,7 +105,7 @@ class Api:
             
     def get_config(self, service):
         path = self.yandex_config_path if service == "yandex" else self.google_config_path
-        default = {"scripts_data": {}}
+        default = {}
         if service == "yandex":
             default.update({
                 "oauth_token": "", 
@@ -167,14 +169,41 @@ class Api:
                 scripts.append({"name": name, "type": ext[1:]})
         return {"scripts": scripts}
 
+    def _get_scripts_data_path(self, service):
+        return self.yandex_scripts_data_path if service == "yandex" else self.google_scripts_data_path
+
+    def _load_scripts_data(self, service):
+        path = self._get_scripts_data_path(service)
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
+    def _save_scripts_data(self, service, data):
+        path = self._get_scripts_data_path(service)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
     def save_script_data(self, service, script_name, data):
-        config = self.get_config(service)
-        config.setdefault("scripts_data", {})[script_name] = data
-        return self.save_config(service, config)
+        try:
+            all_data = self._load_scripts_data(service)
+            all_data[script_name] = data
+            self._save_scripts_data(service, all_data)
+            return {"success": True}
+        except Exception as e:
+            print(f"[API] Ошибка сохранения данных скрипта {script_name}: {e}")
+            return {"success": False}
 
     def get_script_data(self, service, script_name):
-        config = self.get_config(service)
-        return config.get("scripts_data", {}).get(script_name, {})
+        all_data = self._load_scripts_data(service)
+        return all_data.get(script_name, {})
+
+    def get_scripts_data(self, service):
+        return self._load_scripts_data(service)
 
     def generate_arr_js(self, service, script_name):
         data = self.get_script_data(service, script_name)
@@ -345,11 +374,11 @@ def main():
         title="YWM-and-GSC",
         url=html_file,
         js_api=api,
-        width=1200,
+        width=1000,
         height=800,
         frameless=False,
         on_top=False,
-        min_size=(800, 600),
+        min_size=(600, 400),
         background_color='#121214'
     )
 

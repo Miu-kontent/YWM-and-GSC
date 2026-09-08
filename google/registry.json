@@ -71,6 +71,12 @@
                     "fields": []
                 }
             ]
+        },
+        {
+            "id": "tests",
+            "name": "Тесты",
+            "description": "Тестовые скрипты (не из реестра)",
+            "subcategories": []
         }
     ],
     "excludedScripts": ["loadConfig", "loadGoogleConfig"]

@@ -99,19 +99,16 @@ YWM-and-GSC/
 - **Никакого общего `arr.js`** — каждый скрипт получает только нужные ему поля
 - **Секреты не в гите** — все `config.json` и `array_*.js` в `.gitignore`
 - **GUI генерирует массивы** — при запуске скрипта `utils/main.py` создаёт актуальные `array_<script>.js` из сохранённых данных
+- **Данные скриптов отдельно** — списки для скриптов хранятся в `yandex/scripts_data.json` и `google/scripts_data.json`
 
 ### Пример `yandex/config.json`
 ```json
 {
   "oauth_token": "y0_AgAAA...",
   "user_id": "123456789",
-  "metricCounterId": "12345678",
-  "contactPath": "contacts",
-  "sitemap_path": "/sitemap.xml",
-  "scripts_data": {
-    "yandex_verify": { "links": ["sub.domain.ru"] },
-    "addRegions": { "links": ["sub.domain.ru"], "city": ["Москва"] }
-  }
+  "metric_id": "12345678",
+  "contact_path": "contacts",
+  "sitemap_path": "/sitemap.xml"
 }
 ```
 
@@ -121,19 +118,28 @@ YWM-and-GSC/
   "client_id": "xxx.apps.googleusercontent.com",
   "client_secret": "GOCSPX-...",
   "access_token": "ya29.a0A...",
-  "refresh_token": "1//...",
   "auth_code": "",
-  "redirect_uri": "http://localhost:3000/",
-  "sitemap_path": "/sitemap/",
-  "main_resource": "https://medcentr-cristall.ru/",
-  "scripts_data": {
-    "gsc_add_sites": { "gsc_subdomains": ["https://sub.domain.ru/"] },
-    "gsc_verify": { "gsc_subdomains": ["https://sub.domain.ru/"] }
-  }
+  "sitemap_path": "/sitemap/"
 }
 ```
 
-> ⚠️ **Важно:** `yandex/config.json`, `google/config.json`, `yandex/array_*.js`, `google/array_*.js` — в `.gitignore`. Хранятся локально.
+### Пример `yandex/scripts_data.json`
+```json
+{
+  "yandex_verify": { "links": ["sub.domain.ru"], "yandexSettings": "..." },
+  "addRegions": { "links": ["sub.domain.ru"], "city": ["Москва"], "contactPath": "contacts" }
+}
+```
+
+### Пример `google/scripts_data.json`
+```json
+{
+  "gsc_add_sites": { "gsc_subdomains": ["https://sub.domain.ru/"] },
+  "gsc_verify": { "gsc_subdomains": ["https://sub.domain.ru/"] }
+}
+```
+
+> ⚠️ **Важно:** `yandex/config.json`, `google/config.json`, `yandex/scripts_data.json`, `google/scripts_data.json`, `yandex/array_*.js`, `google/array_*.js` — в `.gitignore`. Хранятся локально.
 
 ---
 

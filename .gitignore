@@ -1,7 +1,9 @@
 .venv/
 yandex/app_config.json
 yandex/config.json
+yandex/scripts_data.json
 google/config.json
+google/scripts_data.json
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
