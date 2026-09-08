@@ -5,7 +5,7 @@ import requests
 
 
 BASE_URL = "https://api.webmaster.yandex.net/v4"
-MAX_ROWS = 10
+MAX_ROWS = 3
 
 
 def load_config():
@@ -18,9 +18,32 @@ def load_config():
         sys.exit(1)
 
 
-def api_get(url, headers):
+def load_script_data():
+    array_path = os.path.join(os.path.dirname(__file__), '..', 'array_yandex_export_test.js')
+    if not os.path.exists(array_path):
+        return {}
     try:
-        resp = requests.get(url, headers=headers, timeout=15)
+        with open(array_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        result = {}
+        for line in content.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('const ') and ' = ' in line:
+                var_part, val_part = line.split(' = ', 1)
+                var_name = var_part.replace('const ', '').strip()
+                val_part = val_part.rstrip(';').strip()
+                try:
+                    result[var_name] = json.loads(val_part)
+                except json.JSONDecodeError:
+                    result[var_name] = val_part.strip('"').strip("'")
+        return result
+    except Exception:
+        return {}
+
+
+def api_get(url, headers, params=None):
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=15)
         if resp.status_code == 200:
             return resp.json(), None
         return None, f"HTTP {resp.status_code}"
@@ -141,7 +164,7 @@ def export_sitemaps(headers, user_id, host_id):
     print()
 
     rows = []
-    for s in sitemaps:
+    for s in sitemaps[:MAX_ROWS]:
         sources = s.get("sources", [])
         sources_str = ", ".join(sources) if sources else "-"
         rows.append([
@@ -179,7 +202,7 @@ def export_user_sitemaps(headers, user_id, host_id):
     print()
 
     rows = []
-    for s in sitemaps:
+    for s in sitemaps[:MAX_ROWS]:
         rows.append([
             s.get("sitemap_id", ""),
             s.get("sitemap_url", ""),
@@ -221,7 +244,7 @@ def export_owners(headers, user_id, host_id):
     print()
 
     rows = []
-    for u in users:
+    for u in users[:MAX_ROWS]:
         rows.append([
             u.get("user_login", ""),
             u.get("verification_uin", ""),
@@ -236,6 +259,218 @@ def export_owners(headers, user_id, host_id):
     )
 
 
+def export_external_links(headers, user_id, host_id):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/links/external/samples ===")
+    print()
+
+    data, err = api_get(
+        f"{BASE_URL}/user/{user_id}/hosts/{host_id}/links/external/samples",
+        headers, params={"offset": 0, "limit": MAX_ROWS}
+    )
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    total = data.get("count", 0)
+    links = data.get("links", [])
+    print(f"ℹ️  Всего внешних ссылок: {total}")
+    print()
+
+    rows = []
+    for l in links[:MAX_ROWS]:
+        rows.append([
+            l.get("source_url", ""),
+            l.get("destination_url", ""),
+            l.get("discovery_date", ""),
+            l.get("source_last_access_date", "")
+        ])
+
+    print_table(
+        ["source_url", "destination_url", "discovery_date", "source_last_access_date"],
+        rows,
+        total_count=total
+    )
+
+
+def export_limits(headers, user_id, host_id):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/pro/limits ===")
+    print()
+
+    data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{host_id}/pro/limits", headers)
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    limits = data.get("limits", [])
+    print(f"ℹ️  Всего лимитов: {len(limits)}")
+    print()
+
+    rows = []
+    for l in limits[:MAX_ROWS]:
+        rows.append([
+            l.get("owner", ""),
+            l.get("feature", ""),
+            str(l.get("limit", "")),
+            str(l.get("used", "")),
+            str(l.get("remaining", "")),
+            l.get("period_start", ""),
+            l.get("period_end", ""),
+            str(l.get("is_active", ""))
+        ])
+
+    print_table(
+        ["owner", "feature", "limit", "used", "remaining", "period_start", "period_end", "is_active"],
+        rows,
+        total_count=len(limits)
+    )
+
+
+def export_recrawl_quota(headers, user_id, host_id):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/recrawl/quota ===")
+    print()
+
+    data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{host_id}/recrawl/quota", headers)
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    info = data.get("host_sitemaps_recrawl_limit_info", data)
+    print_kv(info)
+
+
+def export_sqi_history(headers, user_id, host_id, date_from, date_to):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/sqi-history ===")
+    print()
+
+    params = {}
+    if date_from:
+        params["date_from"] = date_from
+    if date_to:
+        params["date_to"] = date_to
+
+    data, err = api_get(
+        f"{BASE_URL}/user/{user_id}/hosts/{host_id}/sqi-history",
+        headers, params=params if params else None
+    )
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    points = data.get("points", [])
+    print(f"ℹ️  Записей: {len(points)}")
+    print()
+
+    rows = []
+    for p in points[:MAX_ROWS]:
+        rows.append([p.get("date", ""), str(p.get("value", ""))])
+
+    print_table(["date", "value"], rows, total_count=len(points))
+
+
+def export_search_events(headers, user_id, host_id, date_from, date_to):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/search-urls/events/history ===")
+    print()
+
+    params = {}
+    if date_from:
+        params["date_from"] = date_from
+    if date_to:
+        params["date_to"] = date_to
+
+    data, err = api_get(
+        f"{BASE_URL}/user/{user_id}/hosts/{host_id}/search-urls/events/history",
+        headers, params=params if params else None
+    )
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    indicators = data.get("indicators", {})
+    for event_type, events in indicators.items():
+        print(f"ℹ️  Тип: {event_type}")
+        if isinstance(events, list):
+            rows = []
+            for e in events[:MAX_ROWS]:
+                rows.append([e.get("date", ""), str(e.get("value", ""))])
+            print_table(["date", "value"], rows, total_count=len(events))
+        else:
+            print_kv(events if isinstance(events, dict) else {"value": events})
+        print()
+
+
+def export_important_urls(headers, user_id, host_id, site_url):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/important-urls/history ===")
+    print()
+
+    data, err = api_get(
+        f"{BASE_URL}/user/{user_id}/hosts/{host_id}/important-urls/history",
+        headers, params={"url": site_url}
+    )
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    if "error_code" in data:
+        print(f"⚠️  Ошибка API: {data.get('error_code')} — {data.get('error_message', '')}")
+        return
+
+    print_kv(data)
+
+
+def export_broken_links(headers, user_id, host_id, date_from, date_to, indicator=None):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/links/internal/broken/samples ===")
+    print()
+
+    params = {"offset": 0, "limit": MAX_ROWS}
+    if date_from:
+        params["date_from"] = date_from
+    if date_to:
+        params["date_to"] = date_to
+    if indicator:
+        params["indicator"] = indicator
+
+    data, err = api_get(
+        f"{BASE_URL}/user/{user_id}/hosts/{host_id}/links/internal/broken/samples",
+        headers, params=params
+    )
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    if isinstance(data, dict) and "links" in data:
+        links = data["links"]
+        total = data.get("count", len(links))
+        print(f"ℹ️  Всего сломанных ссылок: {total}")
+        print()
+        rows = []
+        for l in links[:MAX_ROWS]:
+            rows.append([
+                l.get("source_url", ""),
+                l.get("destination_url", ""),
+                l.get("last_access_date", ""),
+                l.get("error_code", "")
+            ])
+        print_table(
+            ["source_url", "destination_url", "last_access_date", "error_code"],
+            rows,
+            total_count=total
+        )
+    elif isinstance(data, list):
+        print(f"ℹ️  Элементов: {len(data)}")
+        print()
+        for item in data[:MAX_ROWS]:
+            print_kv(item)
+    else:
+        print_kv(data)
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
@@ -243,6 +478,7 @@ def main():
     print("ℹ️ === ЭКСПОРТ ДАННЫХ ЯНДЕКС.ВЕБМАСТЕРА ===")
 
     config = load_config()
+    script_data = load_script_data()
 
     token = config.get("oauth_token")
     if not token:
@@ -258,9 +494,23 @@ def main():
         print("ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить")
         return
 
+    date_from = script_data.get("date_from", "")
+    date_to = script_data.get("date_to", "")
+    query_indicator = script_data.get("query_indicator", "TOTAL_SHOWS")
+    broken_indicator = script_data.get("broken_indicator", "")
+    site_url = config.get("sitemap_path", "")
+
     headers = {"Authorization": f"OAuth {token}"}
 
     print(f"ℹ️  user_id: {user_id}")
+    if date_from:
+        print(f"ℹ️  date_from: {date_from}")
+    if date_to:
+        print(f"ℹ️  date_to: {date_to}")
+    if query_indicator:
+        print(f"ℹ️  query_indicator: {query_indicator}")
+    if broken_indicator:
+        print(f"ℹ️  broken_indicator: {broken_indicator}")
 
     hosts = export_hosts(headers, user_id)
 
@@ -278,6 +528,20 @@ def main():
         export_user_sitemaps(headers, user_id, hid)
         export_verification(headers, user_id, hid)
         export_owners(headers, user_id, hid)
+        export_external_links(headers, user_id, hid)
+        export_limits(headers, user_id, hid)
+        export_recrawl_quota(headers, user_id, hid)
+
+        if date_from or date_to:
+            export_sqi_history(headers, user_id, hid, date_from, date_to)
+            export_search_events(headers, user_id, hid, date_from, date_to)
+            export_broken_links(headers, user_id, hid, date_from, date_to, broken_indicator)
+        else:
+            print()
+            print(f"ℹ️  ⏭️  sqi-history, search-events, broken-links пропущены (не указана дата)")
+
+        if h_url:
+            export_important_urls(headers, user_id, hid, h_url)
 
     print()
     print("ℹ️ === ЭКСПОРТ ЗАВЕРШЁН ===")

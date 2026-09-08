@@ -321,7 +321,11 @@ function renderServicePage(service) {
 
     const testsCat = registry.categories.find(c => c.id === 'tests');
     if (testsCat) {
-        testsCat.subcategories = scripts
+        const existingScripts = new Set(
+            (testsCat.subcategories || []).map(s => s.script).filter(Boolean)
+        );
+        const newSubs = scripts
+            .filter(s => !existingScripts.has(s.name))
             .filter(s => !registry.categories.some(cat =>
                 cat.id !== 'tests' && (cat.subcategories || []).some(sub => sub.script === s.name)
             ))
@@ -333,6 +337,7 @@ function renderServicePage(service) {
                 type: s.type === 'py' ? 'api' : 'browser',
                 fields: ['data']
             }));
+        testsCat.subcategories = [...(testsCat.subcategories || []), ...newSubs];
     }
 
     renderCategoryNav(service, registry);
@@ -429,6 +434,55 @@ function positionTooltips(container) {
 
 // ======================== ПАНЕЛЬ СКРИПТА ========================
 
+function resolveField(field) {
+    if (typeof field === 'string') {
+        return { name: field, type: 'textarea', label: `${field} (по одному на строку или JSON)` };
+    }
+    return {
+        name: field.name,
+        type: field.type || 'textarea',
+        label: field.label || field.name,
+        options: field.options || []
+    };
+}
+
+function renderFieldInput(field, scriptId, savedData) {
+    const f = resolveField(field);
+    const val = savedData[f.name] || '';
+    const id = `${scriptId}-${f.name}`;
+
+    switch (f.type) {
+        case 'date':
+            return `<div class="form-group">
+                <label class="form-label">${f.label}</label>
+                <input type="date" class="form-control" id="${id}" value="${val}">
+            </div>`;
+        case 'number':
+            return `<div class="form-group">
+                <label class="form-label">${f.label}</label>
+                <input type="number" class="form-control" id="${id}" value="${val}" placeholder="${f.label}">
+            </div>`;
+        case 'text':
+            return `<div class="form-group">
+                <label class="form-label">${f.label}</label>
+                <input type="text" class="form-control" id="${id}" value="${val}" placeholder="${f.label}">
+            </div>`;
+        case 'select':
+            const options = f.options.map(o =>
+                `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+            ).join('');
+            return `<div class="form-group">
+                <label class="form-label">${f.label}</label>
+                <select class="form-control" id="${id}">${options}</select>
+            </div>`;
+        default:
+            return `<div class="form-group">
+                <label class="form-label">${f.label} (по одному на строку или JSON)</label>
+                <textarea class="form-control" id="${id}" placeholder="Введите ${f.name}...">${val}</textarea>
+            </div>`;
+    }
+}
+
 function renderScriptPanel(service, scriptName, subcategory) {
     const container = document.getElementById(`${service}-script-content`);
     if (!container) return;
@@ -442,12 +496,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
         ? (scriptInfo.type === 'py' ? 'badge--py' : 'badge--js')
         : (subcategory.type === 'api' ? 'badge--api' : 'badge--js');
 
-    const inputsHtml = fields.map(field => `
-        <div class="form-group">
-            <label class="form-label">${field} (по одному на строку или JSON)</label>
-            <textarea class="form-control" id="${scriptId}-${field}" placeholder="Введите ${field}...">${savedData[field] || ''}</textarea>
-        </div>
-    `).join('');
+    const inputsHtml = (fields || []).map(field => renderFieldInput(field, scriptId, savedData)).join('');
 
     container.innerHTML = `
         <div class="card script-panel" id="${scriptId}-card">
@@ -491,10 +540,17 @@ async function saveScriptData(service, script) {
     const data = {};
 
     fields.forEach(field => {
-        const val = getInputValue(`${scriptId}-${field}`);
+        const f = resolveField(field);
+        const val = getInputValue(`${scriptId}-${f.name}`);
         if (val) {
-            try { data[field] = JSON.parse(val); }
-            catch { data[field] = val.split('\n').map(s => s.trim()).filter(Boolean); }
+            if (f.type === 'textarea') {
+                try { data[f.name] = JSON.parse(val); }
+                catch { data[f.name] = val.split('\n').map(s => s.trim()).filter(Boolean); }
+            } else if (f.type === 'number') {
+                data[f.name] = Number(val);
+            } else {
+                data[f.name] = val;
+            }
         }
     });
 
@@ -515,10 +571,17 @@ function getScriptInputs(scriptId) {
     const data = {};
 
     fields.forEach(field => {
-        const val = getInputValue(`${scriptId}-${field}`);
+        const f = resolveField(field);
+        const val = getInputValue(`${scriptId}-${f.name}`);
         if (val) {
-            try { data[field] = JSON.parse(val); }
-            catch { data[field] = val.split('\n').map(s => s.trim()).filter(Boolean); }
+            if (f.type === 'textarea') {
+                try { data[f.name] = JSON.parse(val); }
+                catch { data[f.name] = val.split('\n').map(s => s.trim()).filter(Boolean); }
+            } else if (f.type === 'number') {
+                data[f.name] = Number(val);
+            } else {
+                data[f.name] = val;
+            }
         }
     });
     return data;
