@@ -7,6 +7,7 @@ AGENTS.md
 .opencode/
 debug_profiles/
 test.py
+Launcher.cs
 # Playwright
 playwright-report/
 test-results/

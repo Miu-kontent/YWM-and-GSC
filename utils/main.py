@@ -9,6 +9,7 @@ import requests
 import shutil
 import zipfile
 import io
+import ctypes
 
 # import webbrowser
 
@@ -332,6 +333,11 @@ class Api:
         return {"success": bool(user_id), "user_id": user_id or "", "log": result.get("log", [])}
 
 def main():
+    shell32 = ctypes.windll.shell32
+    shell32.SetCurrentProcessExplicitAppUserModelID.argtypes = [ctypes.c_wchar_p]
+    shell32.SetCurrentProcessExplicitAppUserModelID.restype = ctypes.c_long
+    shell32.SetCurrentProcessExplicitAppUserModelID(u'com.miu-kontent.ywm-and-gsc')
+
     api = Api()
     html_file = os.path.join(api.gui_dir, "index.html")
 
@@ -341,13 +347,13 @@ def main():
         js_api=api,
         width=1200,
         height=800,
-        frameless=False,    # Убирает стандартную рамку ОС, заголовки и кнопки «закрыть/свернуть» (полезно для создания кастомных уникальных дизайнов).
-        on_top=False,       # Фиксирует окно поверх всех остальных окон в системе.
+        frameless=False,
+        on_top=False,
         min_size=(800, 600),
         background_color='#121214'
     )
 
-    webview.start(debug=True)
+    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True)
 
 
 if __name__ == "__main__":
