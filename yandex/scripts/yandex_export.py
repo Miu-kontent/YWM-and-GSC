@@ -18,24 +18,12 @@ def load_config():
 
 
 def load_script_data():
-    array_path = os.path.join(os.path.dirname(__file__), '..', 'array_yandex_export.js')
+    array_path = os.path.join(os.path.dirname(__file__), '..', 'arrays', 'yandex_export.json')
     if not os.path.exists(array_path):
         return {}
     try:
         with open(array_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        result = {}
-        for line in content.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('const ') and ' = ' in line:
-                var_part, val_part = line.split(' = ', 1)
-                var_name = var_part.replace('const ', '').strip()
-                val_part = val_part.rstrip(';').strip()
-                try:
-                    result[var_name] = json.loads(val_part)
-                except json.JSONDecodeError:
-                    result[var_name] = val_part.strip('"').strip("'")
-        return result
+            return json.load(f)
     except Exception:
         return {}
 
@@ -130,6 +118,13 @@ def main():
 
     all_hosts = hosts_data.get("hosts", [])
 
+    mirrors_of = {}
+    for h in all_hosts:
+        mm = h.get("main_mirror") or {}
+        mm_key = mm.get("host_id") or mm.get("ascii_host_url")
+        if mm_key:
+            mirrors_of.setdefault(mm_key, []).append(extract_site_url(h.get("unicode_host_url", "")))
+
     if filter_links:
         filter_normalized = set()
         for link in filter_links:
@@ -154,7 +149,9 @@ def main():
 
     unverified_count = 0
     not_ok_count = 0
-    with_problems_count = 0
+    with_recommendations_count = 0
+    with_errors_count = 0
+    mirrors_count = 0
     without_correct_sitemap_count = 0
     with_wrong_sitemaps_count = 0
     sitemaps_not_ok_count = 0
@@ -238,8 +235,10 @@ def main():
         recommendations = site_problems.get("POSSIBLE_PROBLEM", 0) + site_problems.get("RECOMMENDATION", 0)
         errors = site_problems.get("CRITICAL", 0) + site_problems.get("FATAL", 0)
 
-        if recommendations > 0 or errors > 0:
-            with_problems_count += 1
+        if recommendations > 0:
+            with_recommendations_count += 1
+        if errors > 0:
+            with_errors_count += 1
 
         verified_str = "✓" if verified else "✗"
 
@@ -265,10 +264,19 @@ def main():
 
         sitemaps_cell = [{"path": p, "status": st} for p, st in zip(sitemaps_display, statuses_display)]
 
-        print(f"__TABLE_ROW__:{json.dumps({'cells': [display_name, verified_str, data_status, sitemaps_cell, '', recommendations, errors]}, ensure_ascii=False)}")
+        own_main = host.get("main_mirror") or {}
+        if own_main.get("unicode_host_url"):
+            mirror_cell = [f"→ {extract_site_url(own_main['unicode_host_url'])}"]
+        else:
+            mirror_cell = mirrors_of.get(hid, ["-"])
+
+        if own_main.get("unicode_host_url") or mirrors_of.get(hid):
+            mirrors_count += 1
+
+        print(f"__TABLE_ROW__:{json.dumps({'cells': [display_name, verified_str, data_status, mirror_cell, sitemaps_cell, recommendations, errors]}, ensure_ascii=False)}")
 
     print()
-    print(f"__SUMMARY__:{json.dumps({'Всего сайтов': total, 'Не подтверждено': unverified_count, 'Не OK (host_data_status)': not_ok_count, 'С проблемами (site_problems)': with_problems_count, 'Без правильного сайтмапа': without_correct_sitemap_count, 'С неправильными сайтмапами': with_wrong_sitemaps_count, 'Сайтмапы не в OK': sitemaps_not_ok_count}, ensure_ascii=False)}")
+    print(f"__SUMMARY__:{json.dumps({'Всего сайтов': total, 'Не подтверждено': unverified_count, 'Не OK (host_data_status)': not_ok_count, 'С рекомендациями': with_recommendations_count, 'С ошибками': with_errors_count, 'С зеркалами': mirrors_count, 'Без правильного сайтмапа': without_correct_sitemap_count, 'С неправильными сайтмапами': with_wrong_sitemaps_count, 'Сайтмапы не в OK': sitemaps_not_ok_count}, ensure_ascii=False)}")
     print("__TABLE_DONE__:{}")
 
     print()

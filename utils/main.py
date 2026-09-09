@@ -29,10 +29,10 @@ class Api:
         self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
         self.yandex_app_config_path = os.path.join(self.yandex_dir, "app_config.json")
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
-        self.yandex_scripts_data_path = os.path.join(self.yandex_dir, "scripts_data.json")
+        self.yandex_arrays_dir = os.path.join(self.yandex_dir, "arrays")
         self.yandex_scripts_dir = os.path.join(self.yandex_dir, "scripts")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
-        self.google_scripts_data_path = os.path.join(self.google_dir, "scripts_data.json")
+        self.google_arrays_dir = os.path.join(self.google_dir, "arrays")
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
         self.running_processes = {}
@@ -169,11 +169,25 @@ class Api:
                 scripts.append({"name": name, "type": ext[1:]})
         return {"scripts": scripts}
 
-    def _get_scripts_data_path(self, service):
-        return self.yandex_scripts_data_path if service == "yandex" else self.google_scripts_data_path
+    def _get_arrays_dir(self, service):
+        return self.yandex_arrays_dir if service == "yandex" else self.google_arrays_dir
 
-    def _load_scripts_data(self, service):
-        path = self._get_scripts_data_path(service)
+    def _get_script_array_path(self, service, script_name):
+        return os.path.join(self._get_arrays_dir(service), f"{script_name}.json")
+
+    def save_script_data(self, service, script_name, data):
+        try:
+            path = self._get_script_array_path(service, script_name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            return {"success": True}
+        except Exception as e:
+            print(f"[API] Ошибка сохранения данных скрипта {script_name}: {e}")
+            return {"success": False}
+
+    def get_script_data(self, service, script_name):
+        path = self._get_script_array_path(service, script_name)
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -182,53 +196,27 @@ class Api:
                 pass
         return {}
 
-    def _save_scripts_data(self, service, data):
-        path = self._get_scripts_data_path(service)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-
-    def save_script_data(self, service, script_name, data):
-        try:
-            all_data = self._load_scripts_data(service)
-            all_data[script_name] = data
-            self._save_scripts_data(service, all_data)
-            return {"success": True}
-        except Exception as e:
-            print(f"[API] Ошибка сохранения данных скрипта {script_name}: {e}")
-            return {"success": False}
-
-    def get_script_data(self, service, script_name):
-        all_data = self._load_scripts_data(service)
-        return all_data.get(script_name, {})
-
     def get_scripts_data(self, service):
-        return self._load_scripts_data(service)
+        arrays_dir = self._get_arrays_dir(service)
+        result = {}
+        if not os.path.isdir(arrays_dir):
+            return result
+        for fname in os.listdir(arrays_dir):
+            if fname.endswith(".json"):
+                script_name = os.path.splitext(fname)[0]
+                result[script_name] = self.get_script_data(service, script_name)
+        return result
 
-    def generate_arr_js(self, service, script_name):
+    def generate_arr(self, service, script_name):
         data = self.get_script_data(service, script_name)
-        service_dir = self.yandex_dir if service == "yandex" else self.google_dir
-        output_path = os.path.join(service_dir, f"array_{script_name}.js")
-
-        lines = []
-        for key, value in data.items():
-            if isinstance(value, list):
-                lines.append(f"const {key} = {json.dumps(value, ensure_ascii=False)};")
-            elif isinstance(value, dict):
-                lines.append(f"const {key} = {json.dumps(value, ensure_ascii=False)};")
-            elif isinstance(value, str):
-                lines.append(f"const {key} = \"{value}\";")
-            else:
-                lines.append(f"const {key} = {json.dumps(value)};")
-        lines.append(f"\nmodule.exports = {{{', '.join(data.keys())}}};")
-
         try:
-            os.makedirs(service_dir, exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write("\n".join(lines))
-            print(f"[API] Generated {output_path}")
+            path = self._get_script_array_path(service, script_name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            print(f"[API] Updated {path}")
         except Exception as e:
-            print(f"[API] Ошибка генерации arr.js: {e}")
+            print(f"[API] Ошибка генерации {script_name}.json: {e}")
 
     def check_browser(self, service):
         port = 9229 if service == "yandex" else 9227
@@ -277,7 +265,7 @@ class Api:
         return None
 
     def run_script(self, service, script_name):
-        self.generate_arr_js(service, script_name)
+        self.generate_arr(service, script_name)
 
         service_dir = self.yandex_dir if service == "yandex" else self.google_dir
         script_path = os.path.join(service_dir, "scripts", f"{script_name}.js")
@@ -286,7 +274,7 @@ class Api:
         if os.path.exists(script_path):
             cmd = ["node", script_path]
         elif os.path.exists(py_script_path):
-            cmd = [sys.executable, "-u", py_script_path]
+            cmd = [sys.executable, "-B", "-u", py_script_path]
         else:
             return {"success": False, "message": f"Скрипт {script_name} не найден"}
 

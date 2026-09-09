@@ -19,24 +19,12 @@ def load_config():
 
 
 def load_script_data():
-    array_path = os.path.join(os.path.dirname(__file__), '..', 'array_yandex_export_test.js')
+    array_path = os.path.join(os.path.dirname(__file__), '..', 'arrays', 'yandex_export_test.json')
     if not os.path.exists(array_path):
         return {}
     try:
         with open(array_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        result = {}
-        for line in content.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('const ') and ' = ' in line:
-                var_part, val_part = line.split(' = ', 1)
-                var_name = var_part.replace('const ', '').strip()
-                val_part = val_part.rstrip(';').strip()
-                try:
-                    result[var_name] = json.loads(val_part)
-                except json.JSONDecodeError:
-                    result[var_name] = val_part.strip('"').strip("'")
-        return result
+            return json.load(f)
     except Exception:
         return {}
 

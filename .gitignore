@@ -1,13 +1,15 @@
 .venv/
+__pycache__/
+*.pyc
 yandex/app_config.json
 yandex/config.json
-yandex/scripts_data.json
+yandex/arrays/*
 google/config.json
-google/scripts_data.json
+google/arrays/*
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
-debug_profiles/
+debug_profiles/*
 test.py
 Launcher.cs
 API вебмастера.txt

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 СКРИПТ ДЛЯ ДОБАВЛЕНИЯ SITEMAP
-Работает с arr.js в формате пользователя
+Читает данные из arrays/sitemap.json (генерируется GUI)
 Отчет только в CMD (без сохранения файлов)
 """
 
@@ -10,146 +10,61 @@ import requests
 import os
 import sys
 import time
-import re
+import json
 
 print("=" * 70)
 print("🚀 ЗАПУСК СКРИПТА: Добавление Sitemap в Яндекс Вебмастер")
 print("=" * 70)
 print()
 
-# 1. НАЙТИ ARR.JS
-arr_path = None
-search_paths = [
-    # "Массивы/arr.js",
-    "arr.js", 
-    "../Скрипты/arr.js",
-    "./Скрипты/arr.js"
-]
-
-for path in search_paths:
-    if os.path.exists(path):
-        arr_path = os.path.abspath(path)
-        print(f"✅ Найден файл: {arr_path}")
-        break
-
-if not arr_path:
-    print("❌ Файл arr.js не найден!")
-    print("Положите arr.js в папку 'Массивы'")
+# 1. НАЙТИ arrays/sitemap.json
+array_path = os.path.join(os.path.dirname(__file__), '..', 'arrays', 'sitemap.json')
+if not os.path.exists(array_path):
+    print(f"❌ Файл не найден: {array_path}")
+    print("Запустите скрипт из GUI, чтобы данные были созданы.")
     sys.exit(1)
 
-# 2. ПРОСТОЙ ПАРСИНГ - читаем весь файл
 try:
-    with open(arr_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+    with open(array_path, 'r', encoding='utf-8') as f:
+        script_data = json.load(f)
 except Exception as e:
     print(f"❌ Ошибка чтения файла: {e}")
     sys.exit(1)
 
-# 3. ИЗВЛЕЧЬ YANDEX SETTINGS
-oauth_token = None
-user_id = None
-sitemap_name = None
+# 2. ИЗВЛЕЧЬ YANDEX SETTINGS
+settings = script_data.get("yandexSettings", {}) or {}
+if isinstance(settings, str):
+    try:
+        settings = json.loads(settings)
+    except Exception:
+        settings = {}
 
-# Ищем блок yandexSettings
-if 'yandexSettings = {' in content:
-    start_idx = content.find('yandexSettings = {')
-    
-    # Ищем конец блока
-    brace_count = 0
-    in_brace = False
-    end_idx = start_idx
-    
-    for i in range(start_idx, len(content)):
-        char = content[i]
-        
-        if char == '{':
-            brace_count += 1
-            in_brace = True
-        elif char == '}':
-            brace_count -= 1
-            if brace_count == 0 and in_brace:
-                end_idx = i + 1
-                break
-    
-    if end_idx > start_idx:
-        settings_block = content[start_idx:end_idx]
-        
-        # Ищем значения
-        token_match = re.search(r"oauth_token:\s*['\"]([^'\"]+)['\"]", settings_block)
-        if token_match:
-            oauth_token = token_match.group(1)
-        
-        id_match = re.search(r"user_id:\s*['\"]([^'\"]+)['\"]", settings_block)
-        if id_match:
-            user_id = id_match.group(1)
-        
-        name_match = re.search(r"sitemap_name:\s*['\"]([^'\"]+)['\"]", settings_block)
-        if name_match:
-            sitemap_name = name_match.group(1)
+oauth_token = settings.get("oauth_token", "")
+user_id = settings.get("user_id", "")
+sitemap_name = settings.get("sitemap_name", "")
 
-# 4. ИЗВЛЕЧЬ МАССИВ LINKS (игнорируя комментарии)
-links = []
-
-if 'const links = [' in content:
-    # Находим начало массива
-    start_idx = content.find('const links = [')
-    
-    # Ищем конец массива
-    end_idx = content.find('];', start_idx)
-    if end_idx == -1:
-        next_const = content.find('const ', start_idx + 15)
-        if next_const != -1:
-            end_idx = next_const
-        else:
-            end_idx = content.find('module.exports', start_idx)
-            if end_idx == -1:
-                end_idx = len(content)
-    
-    if end_idx > start_idx:
-        array_content = content[start_idx:end_idx]
-        
-        # Разбиваем на строки
-        lines = array_content.split('\n')
-        
-        for line in lines:
-            # Пропускаем закомментированные строки
-            if line.strip().startswith('//'):
-                continue
-            
-            # Убираем комментарии в середине строки
-            if '//' in line:
-                line = line.split('//')[0].strip()
-            
-            # Ищем строки в кавычках
-            single_matches = re.findall(r"'([^']+)'", line)
-            for match in single_matches:
-                match = match.strip()
-                if match and not match.startswith('//'):
-                    links.append(match)
-            
-            double_matches = re.findall(r'"([^"]+)"', line)
-            for match in double_matches:
-                match = match.strip()
-                if match and not match.startswith('//'):
-                    links.append(match)
+# 3. ИЗВЛЕЧЬ МАССИВ LINKS
+links = script_data.get("links", []) or []
+if isinstance(links, str):
+    links = [l.strip() for l in links.split('\n') if l.strip()]
 
 # Убираем дубликаты и пустые строки
 links = [link.strip() for link in links if link.strip()]
 links = list(dict.fromkeys(links))
 
-# 5. ПРОВЕРКА ДАННЫХ
+# 4. ПРОВЕРКА ДАННЫХ
 if not oauth_token:
-    print("❌ Не найден oauth_token в arr.js")
+    print("❌ Не найден oauth_token в массиве sitemap")
     sys.exit(1)
 
 if not user_id:
-    print("❌ Не найден user_id в arr.js")
+    print("❌ Не найден user_id в массиве sitemap")
     sys.exit(1)
 
 if not sitemap_name:
     sitemap_name = 'sitemaps'
 
-print("✅ Данные из arr.js загружены:")
+print("✅ Данные из arrays/sitemap.json загружены:")
 print(f"   • Яндекс User ID: {user_id}")
 print(f"   • Имя файла sitemap: {sitemap_name}")
 print(f"   • Найдено поддоменов: {len(links)}")
@@ -159,7 +74,7 @@ if not links:
     print("❌ Нет поддоменов для обработки!")
     sys.exit(1)
 
-# 6. ФУНКЦИЯ ДОБАВЛЕНИЯ SITEMAP
+# 5. ФУНКЦИЯ ДОБАВЛЕНИЯ SITEMAP
 def add_sitemap(subdomain):
     """Добавляет sitemap для поддомена"""
     try:
@@ -179,7 +94,7 @@ def add_sitemap(subdomain):
     except Exception as e:
         return 0, str(e)
 
-# 7. ОБРАБОТКА ВСЕХ ПОДДОМЕНОВ
+# 6. ОБРАБОТКА ВСЕХ ПОДДОМЕНОВ
 print("🔄 Начинаю обработку всех поддоменов...")
 print("=" * 70)
 
@@ -223,7 +138,7 @@ for i, domain in enumerate(links, 1):
     if i < total:
         time.sleep(0.2)
 
-# 8. ФИНАЛЬНЫЙ ОТЧЕТ В CMD
+# 7. ФИНАЛЬНЫЙ ОТЧЕТ В CMD
 print()
 print("=" * 70)
 print("📊 ФИНАЛЬНЫЙ ОТЧЕТ:")
@@ -237,7 +152,7 @@ print(f"🎯 УСПЕШНО (включая уже добавленные): {suc
 print(f"❗ ПРОБЛЕМНЫЕ: {errors}")
 print("=" * 70)
 
-# 9. КРАТКИЕ РЕКОМЕНДАЦИИ
+# 8. КРАТКИЕ РЕКОМЕНДАЦИИ
 print("\n💡 КРАТКИЕ РЕКОМЕНДАЦИИ:")
 
 if not_found > 0:
@@ -248,6 +163,6 @@ if already > 0:
 
 print("=" * 70)
 
-# 10. ПАУЗА ДЛЯ EXE (чтобы увидеть результаты)
+# 9. ПАУЗА ДЛЯ EXE (чтобы увидеть результаты)
 if hasattr(sys, 'frozen'):
     input("\nНажмите Enter для выхода...")

@@ -2,31 +2,17 @@ const fs = require('fs');
 const path = require('path');
 
 function loadConfig(scriptName) {
-    const configPath = path.join(__dirname, '..', `array_${scriptName}.js`);
+    const configPath = path.join(__dirname, '..', 'arrays', `${scriptName}.json`);
     try {
         if (fs.existsSync(configPath)) {
-            delete require.cache[require.resolve(configPath)];
-            return require(configPath);
+            return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         }
     } catch (e) {
         console.log(`⚠️ Не удалось загрузить ${configPath}: ${e.message}`);
+        return null;
     }
-    
-    const fallbackPaths = [
-        path.join(__dirname, '..', 'arr.js'),
-        path.join(__dirname, 'arr.js'),
-    ];
-    
-    for (const p of fallbackPaths) {
-        try {
-            if (fs.existsSync(p)) {
-                delete require.cache[require.resolve(p)];
-                return require(p);
-            }
-        } catch (e) {}
-    }
-    
-    console.log('❌ Файл конфигурации не найден!');
+
+    console.log(`❌ Файл конфигурации не найден: ${configPath}`);
     return null;
 }
 
