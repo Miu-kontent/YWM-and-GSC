@@ -121,7 +121,7 @@ body {
     color: var(--text-main); font-size: 14px; transition: all 0.2s;
 }
 .form-control:focus { outline: none; border-color: var(--input-focus-border); box-shadow: 0 0 0 2px var(--input-focus-shadow); }
-textarea.form-control { min-height: 100px; resize: vertical; font-family: monospace; }
+textarea.form-control { min-height: 100px; resize: vertical; font-family: monospace; height: 240px; }
 select.form-control {
     appearance: none; -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238d99ae' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -147,14 +147,40 @@ select.form-control {
 .list--vertical { display: flex; flex-direction: column; gap: 8px; }
 
 /* --- Таблицы (Tables) --- */
-.table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; }
+.table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; max-height: 500px; overflow-y: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table th { background: var(--bg-card); font-weight: 600; color: var(--text-muted); position: sticky; top: 0; }
 .table tr:hover td { background: var(--bg-body); }
 .table td.center { text-align: center; }
 .table th.center { text-align: center; }
-.table-actions { display: flex; justify-content: flex-end; padding: 12px 0 0; }
+.table-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    z-index: 1;
+}
+
+/* Группы экспорта (чекбоксы) */
+.export-groups { display: flex; gap: 8px; align-items: center; margin-left: 16px; flex-wrap: wrap; }
+.export-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-body);
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: help;
+    user-select: none;
+}
+.export-group input { cursor: pointer; }
 .table tbody:empty::after {
     content: 'Нет данных';
     display: block;

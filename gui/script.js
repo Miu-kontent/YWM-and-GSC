@@ -436,7 +436,7 @@ function positionTooltips(container) {
 
 function resolveField(field) {
     if (typeof field === 'string') {
-        return { name: field, type: 'textarea', label: `${field} (по одному на строку или JSON)` };
+        return { name: field, type: 'textarea', label: `${field} (по одному на строку, с или без протокола)` };
     }
     return {
         name: field.name,
@@ -481,7 +481,7 @@ function renderFieldInput(field, scriptId, savedData) {
             else if (val && typeof val === 'object') textVal = JSON.stringify(val, null, 2);
             else textVal = val;
             return `<div class="form-group">
-                <label class="form-label">${f.label} (по одному на строку или JSON)</label>
+                <label class="form-label">${f.label} (по одному на строку, с или без протокола)</label>
                 <textarea class="form-control" id="${id}" placeholder="Введите ${f.name}...">${escHtml(textVal)}</textarea>
             </div>`;
     }
@@ -498,6 +498,54 @@ function getScriptLayout(service, scriptName) {
     return {};
 }
 
+const DEFAULT_TABLE_HEADERS = ['Сайт', 'Подтверждение', 'Статус', 'Сайтмапы', 'Статус сайтмапа', 'Рекомендации', 'Ошибки'];
+
+function getSavedSelection(service, scriptName, layout) {
+    const saved = window._scriptsData[service] && window._scriptsData[service][scriptName];
+    if (saved && Array.isArray(saved.export_groups)) return saved.export_groups;
+    return [];
+}
+
+function getVisibleColumns(layout, selection) {
+    if (layout.columns && layout.exportGroups) {
+        return layout.columns.filter(c => c.depends === 'always' || selection.includes(c.depends));
+    }
+    const headers = layout.tableHeaders || DEFAULT_TABLE_HEADERS;
+    const centers = layout.centerColumns || [];
+    const widths = layout.columnWidths || {};
+    return headers.map((label, i) => ({ label, center: centers.includes(i), width: widths[i] || null }));
+}
+
+function buildTheadHtml(layout, selection) {
+    return getVisibleColumns(layout, selection).map(c => {
+        const style = c.width ? ` style="width:${c.width}"` : '';
+        const cls = c.center ? ' class="center"' : '';
+        return `<th${cls}${style}>${escHtml(c.label)}</th>`;
+    }).join('');
+}
+
+function collectExportGroups(scriptId) {
+    const body = document.getElementById(`${scriptId}-body`);
+    const keys = [];
+    if (body) body.querySelectorAll('[data-export-group]:checked').forEach(cb => keys.push(cb.value));
+    return keys;
+}
+
+async function onExportGroupChange(service, script) {
+    const scriptId = `${service}-${script}`;
+    const layout = getScriptLayout(service, script) || {};
+    if (!layout.exportGroups) return;
+
+    const data = getScriptInputs(scriptId);
+    await window.pywebview.api.save_script_data(service, script, data);
+    window._scriptsData[service][script] = data;
+
+    const selection = collectExportGroups(scriptId);
+    const thead = document.querySelector(`#${scriptId}-report thead`);
+    if (thead) thead.innerHTML = `<tr>${buildTheadHtml(layout, selection)}</tr>`;
+    if (layout.splitSummary) renderSummary(scriptId, null, selection);
+}
+
 function renderScriptPanel(service, scriptName, subcategory) {
     const container = document.getElementById(`${service}-script-content`);
     if (!container) return;
@@ -511,6 +559,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
         ? (scriptInfo.type === 'py' ? 'badge--py' : 'badge--js')
         : (subcategory.type === 'api' ? 'badge--api' : 'badge--js');
     const layout = getScriptLayout(service, scriptName) || {};
+    const selection = getSavedSelection(service, scriptName, layout);
 
     const inputsHtml = (fields || []).map(field => renderFieldInput(field, scriptId, savedData)).join('');
 
@@ -521,6 +570,15 @@ function renderScriptPanel(service, scriptName, subcategory) {
     const saveBtn = layout.hideSave
         ? ''
         : `<button class="btn btn--secondary" onclick="saveScriptData('${service}', '${scriptName}')">💾 Сохранить</button>`;
+
+    const groupsHtml = (layout.exportGroups && layout.exportGroups.length)
+        ? `<div class="export-groups" id="${scriptId}-groups">` + layout.exportGroups.map(g => {
+            const checked = selection.includes(g.key) ? ' checked' : '';
+            return `<label class="export-group" title="${escHtml(g.tooltip || '')}">
+                <input type="checkbox" value="${g.key}" data-export-group="${g.key}" onchange="onExportGroupChange('${service}', '${scriptName}')"${checked}> ${escHtml(g.label)}
+            </label>`;
+        }).join('') + `</div>`
+        : '';
 
     const logsHtml = layout.hideLogs
         ? ''
@@ -540,13 +598,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
            </div>`
         : inputsHtml;
 
-    const defaultHeaders = ['Сайт', 'Подтверждение', 'Статус', 'Сайтмапы', 'Статус сайтмапа', 'Рекомендации', 'Ошибки'];
-    const headers = layout.tableHeaders || defaultHeaders;
-    const theadHtml = headers.map((h, i) => {
-        const w = layout.columnWidths ? layout.columnWidths[i] : null;
-        const centered = (layout.centerColumns || []).includes(i);
-        return `<th${centered ? ' class="center"' : ''}${w ? ` style="width:${w}"` : ''}>${h}</th>`;
-    }).join('');
+    const theadHtml = buildTheadHtml(layout, selection);
 
     container.innerHTML = `
         <div class="card script-panel" id="${scriptId}-card">
@@ -561,6 +613,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
                 <div class="align-right" style="justify-content: flex-start; align-items: center;">
                     <button class="btn btn--primary" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
                     ${saveBtn}
+                    ${groupsHtml}
                     <span class="script-status" style="${statusStyle}" id="${scriptId}-status"></span>
                 </div>
                 ${logsHtml}
@@ -576,7 +629,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
         </div>
     `;
 
-    if (layout.splitSummary) renderSummary(scriptId, null);
+    if (layout.splitSummary) renderSummary(scriptId, null, selection);
 }
 
 // ======================== СОХРАНЕНИЕ/ЗАПУСК СКРИПТОВ ========================
@@ -613,6 +666,10 @@ async function saveScriptData(service, script) {
         }
     });
 
+    if (getScriptLayout(service, script).exportGroups) {
+        data.export_groups = collectExportGroups(scriptId);
+    }
+
     const res = await window.pywebview.api.save_script_data(service, script, data);
     if (res.success) {
         window._scriptsData[service][script] = data;
@@ -643,6 +700,9 @@ function getScriptInputs(scriptId) {
             }
         }
     });
+    if (getScriptLayout(service, script).exportGroups) {
+        data.export_groups = collectExportGroups(scriptId);
+    }
     return data;
 }
 
@@ -761,7 +821,7 @@ function scriptFinished(key) {
 
 // ======================== SUMMARY / TABLE PROTOCOL ========================
 
-function renderSummary(scriptId, data) {
+function renderSummary(scriptId, data, selection) {
     const el = document.getElementById(`${scriptId}-summary`);
     if (!el) return;
     el.classList.remove('hidden');
@@ -770,7 +830,14 @@ function renderSummary(scriptId, data) {
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const layout = getScriptLayout(service, script) || {};
-    let keys = layout.summaryKeys || [];
+    let keys = [];
+
+    if (layout.summaryRows) {
+        if (!selection) selection = collectExportGroups(scriptId);
+        keys = layout.summaryRows.filter(r => r.depends === 'always' || selection.includes(r.depends)).map(r => r.key);
+    } else {
+        keys = layout.summaryKeys || [];
+    }
 
     if (keys.length === 0) {
         keys = data ? Object.keys(data) : [];
@@ -802,7 +869,11 @@ function appendTableRow(scriptId, data) {
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const layout = getScriptLayout(service, script) || {};
-    const centerCols = layout.centerColumns || [];
+    const cols = layout.columns && layout.exportGroups
+        ? getVisibleColumns(layout, collectExportGroups(scriptId))
+        : getVisibleColumns(layout, []);
+    const centerCols = [];
+    cols.forEach((c, i) => { if (c.center) centerCols.push(i); });
 
     const cells = data.cells || [];
     const tr = document.createElement('tr');
@@ -847,7 +918,7 @@ function copyTable(scriptId) {
     if (!table) return;
     let text = '';
     for (const row of table.rows) {
-        text += Array.from(row.cells).slice(0, -1).map(c => c.textContent).join('\t') + '\n';
+        text += Array.from(row.cells).map(c => c.textContent).join('\t') + '\n';
     }
     navigator.clipboard.writeText(text);
     showToast('Таблица скопирована');
