@@ -74,11 +74,29 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление сайтов из Яндекс.Вебмастера",
+                    "description": "Удаление сайтов из Яндекс.Вебмастера через API",
                     "script": "yandex_sites_to_delete",
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["yandex_sites_to_delete"]
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (по одному на строку)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты удаления",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего", "depends": "always"},
+                            {"key": "Удалено", "depends": "always"},
+                            {"key": "Не найдено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },
@@ -204,32 +222,41 @@
             "name": "Тесты",
             "description": "Тестовые скрипты",
             "subcategories": [
-                {
-                    "id": "yandex_export_test",
-                    "name": "Экспорт данных (тест)",
-                    "description": "Получение всей информации через API Яндекс.Вебмастера",
-                    "script": "yandex_export_test",
-                    "type": "api",
-                    "fields": [
-                        {"name": "date_from", "type": "date", "label": "Дата от"},
-                        {"name": "date_to", "type": "date", "label": "Дата до"},
-                        {"name": "query_indicator", "type": "select", "label": "Показатель запросов", "options": [
-                            {"value": "TOTAL_SHOWS", "label": "Показы"},
-                            {"value": "TOTAL_CLICKS", "label": "Клики"},
-                            {"value": "AVG_SHOW_POSITION", "label": "Средняя позиция показа"},
-                            {"value": "AVG_CLICK_POSITION", "label": "Средняя позиция клика"}
-                        ]},
-                        {"name": "broken_indicator", "type": "select", "label": "Индикатор нераб. ссылок", "options": [
-                            {"value": "", "label": "Все"},
-                            {"value": "SITE_ERROR", "label": "SITE_ERROR"},
-                            {"value": "DISALLOWED_BY_USER", "label": "DISALLOWED_BY_USER"},
-                            {"value": "OUTDATED_CONTENT", "label": "OUTDATED_CONTENT"},
-                            {"value": "UNREACHABLE", "label": "UNREACHABLE"}
-                        ]}
-                    ]
-                }
+{
+                "id": "yandex_export_test",
+                "name": "Экспорт данных (тест)",
+                "description": "Получение всей информации через API Яндекс.Вебмастера",
+                "script": "yandex_export_test",
+                "type": "api",
+                "fields": [
+                    {"name": "date_from", "type": "date", "label": "Дата от"},
+                    {"name": "date_to", "type": "date", "label": "Дата до"},
+                    {"name": "query_indicator", "type": "select", "label": "Показатель запросов", "options": [
+                        {"value": "TOTAL_SHOWS", "label": "Показы"},
+                        {"value": "TOTAL_CLICKS", "label": "Клики"},
+                        {"value": "AVG_SHOW_POSITION", "label": "Средняя позиция показа"},
+                        {"value": "AVG_CLICK_POSITION", "label": "Средняя позиция клика"}
+                    ]},
+                    {"name": "broken_indicator", "type": "select", "label": "Индикатор нераб. ссылок", "options": [
+                        {"value": "", "label": "Все"},
+                        {"value": "SITE_ERROR", "label": "SITE_ERROR"},
+                        {"value": "DISALLOWED_BY_USER", "label": "DISALLOWED_BY_USER"},
+                        {"value": "OUTDATED_CONTENT", "label": "OUTDATED_CONTENT"},
+                        {"value": "UNREACHABLE", "label": "UNREACHABLE"}
+                    ]}
+                ]
+            },
+            {
+                "id": "sites_delete_old",
+                "name": "Удаление сайтов (старый UI)",
+                "description": "Удаление сайтов через UI (Puppeteer) — устарел",
+                "script": "yandex_sites_to_delete",
+                "type": "browser",
+                "port": 9229,
+                "fields": ["yandex_sites_to_delete"]
+            }
             ]
         }
     ],
-    "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid"]
+    "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid", "yandex_sites_to_delete"]
 }
