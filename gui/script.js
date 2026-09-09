@@ -514,7 +514,23 @@ function renderScriptPanel(service, scriptName, subcategory) {
                     <span class="script-status" style="font-size: 13px; color: var(--text-muted); margin-left: auto;" id="${scriptId}-status"></span>
                 </div>
                 <div class="logs-container" style="margin-top: 16px;" id="${scriptId}-logs"></div>
-                <div class="table-wrapper hidden" id="${scriptId}-report"></div>
+                <div class="summary-block hidden" id="${scriptId}-summary"></div>
+                <div class="table-wrapper" id="${scriptId}-report">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Сайт</th>
+                                <th>Подтверждение</th>
+                                <th>Статус</th>
+                                <th>Сайтмапы</th>
+                                <th>Статус сайтмапа</th>
+                                <th>Рекомендации</th>
+                                <th>Ошибки</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     `;
@@ -592,6 +608,7 @@ async function runScript(service, script) {
     const statusEl = document.getElementById(`${scriptId}-status`);
     const logsEl = document.getElementById(`${scriptId}-logs`);
     const reportEl = document.getElementById(`${scriptId}-report`);
+    const summaryEl = document.getElementById(`${scriptId}-summary`);
     const btn = event.target;
 
     runningScripts[scriptId] = true;
@@ -600,7 +617,10 @@ async function runScript(service, script) {
     statusEl.textContent = 'Запуск...';
     statusEl.style.color = 'var(--accent)';
     logsEl.innerHTML = '';
-    reportEl.classList.add('hidden');
+    const tbody = reportEl.querySelector('tbody');
+    if (tbody) tbody.innerHTML = '';
+    summaryEl.innerHTML = '';
+    summaryEl.classList.add('hidden');
 
     try {
         await window.pywebview.api.save_script_data(service, script, getScriptInputs(scriptId));
@@ -620,6 +640,26 @@ async function runScript(service, script) {
 
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
+
+    if (line.startsWith('__SUMMARY__:')) {
+        try {
+            const data = JSON.parse(line.slice(line.indexOf(':') + 1));
+            updateSummary(scriptId, data);
+        } catch (e) { /* ignore bad JSON */ }
+        return;
+    }
+    if (line.startsWith('__TABLE_ROW__:')) {
+        try {
+            const data = JSON.parse(line.slice(line.indexOf(':') + 1));
+            appendTableRow(scriptId, data);
+        } catch (e) { /* ignore bad JSON */ }
+        return;
+    }
+    if (line.startsWith('__TABLE_DONE__:')) {
+        finalizeTable(scriptId);
+        return;
+    }
+
     const logsEl = document.getElementById(`${scriptId}-logs`);
     if (logsEl) {
         const div = document.createElement('div');
@@ -648,6 +688,61 @@ function scriptFinished(key) {
         btn.textContent = '▶ Запустить';
     }
     runningScripts[scriptId] = false;
+}
+
+// ======================== SUMMARY / TABLE PROTOCOL ========================
+
+function updateSummary(scriptId, data) {
+    const el = document.getElementById(`${scriptId}-summary`);
+    if (!el) return;
+    el.classList.remove('hidden');
+    const lines = [];
+    for (const [key, value] of Object.entries(data)) {
+        lines.push(`<div class="summary-line"><span class="summary-label">${key}:</span> <span class="summary-value">${value}</span></div>`);
+    }
+    el.innerHTML = lines.join('');
+}
+
+function appendTableRow(scriptId, data) {
+    const el = document.getElementById(`${scriptId}-report`);
+    if (!el) return;
+    el.classList.remove('hidden');
+    const tbody = el.querySelector('tbody');
+    if (!tbody) return;
+    const cells = data.cells || [];
+    const tr = document.createElement('tr');
+    for (const cell of cells) {
+        const td = document.createElement('td');
+        if (Array.isArray(cell)) {
+            td.innerHTML = cell.map(item => {
+                if (typeof item === 'object' && item !== null) {
+                    return `<div class="sitemap-item"><span class="sitemap-path">${escHtml(item.path || '')}</span> <span class="sitemap-status ${item.status === 'OK' ? 'status-ok' : item.status === 'ERROR' ? 'status-error' : 'status-pending'}">${escHtml(item.status || '')}</span></div>`;
+                }
+                return escHtml(String(item));
+            }).join('');
+        } else {
+            td.textContent = String(cell);
+        }
+        tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+}
+
+function finalizeTable(scriptId) {
+    const el = document.getElementById(`${scriptId}-report`);
+    if (!el) return;
+    const existing = el.querySelector('.table-actions');
+    if (existing) return;
+    const actions = document.createElement('div');
+    actions.className = 'table-actions';
+    actions.innerHTML = `<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>`;
+    el.appendChild(actions);
+}
+
+function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 function generateReport(scriptId) {

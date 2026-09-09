@@ -286,7 +286,7 @@ class Api:
         if os.path.exists(script_path):
             cmd = ["node", script_path]
         elif os.path.exists(py_script_path):
-            cmd = [sys.executable, py_script_path]
+            cmd = [sys.executable, "-u", py_script_path]
         else:
             return {"success": False, "message": f"Скрипт {script_name} не найден"}
 
@@ -295,9 +295,11 @@ class Api:
             return {"success": False, "message": "Скрипт уже запущен"}
 
         def stream_output(proc, key):
-            for line in iter(proc.stdout.readline, ''):
+            for line in iter(proc.stdout.readline, b''):
                 if line:
-                    webview.windows[0].evaluate_js(f"appendLog('{key}', `{line.rstrip()}`)")
+                    text = line.decode('utf-8', errors='replace').rstrip()
+                    safe_text = json.dumps(text, ensure_ascii=False)
+                    webview.windows[0].evaluate_js(f"appendLog('{key}', {safe_text})")
             proc.stdout.close()
             proc.wait()
             webview.windows[0].evaluate_js(f"scriptFinished('{key}')")
@@ -308,10 +310,7 @@ class Api:
                 cmd,
                 cwd=service_dir,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                bufsize=1
+                stderr=subprocess.STDOUT
             )
             self.running_processes[process_key] = proc
             thread = threading.Thread(target=stream_output, args=(proc, process_key), daemon=True)

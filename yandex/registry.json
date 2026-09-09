@@ -4,7 +4,18 @@
             "id": "export",
             "name": "Выгрузка",
             "description": "Выгрузка данных из Яндекс.Вебмастера",
-            "subcategories": []
+            "subcategories": [
+                {
+                    "id": "yandex_export",
+                    "name": "Экспорт данных",
+                    "description": "Выгрузка данных по сайтам: статусы, сайтмапы, проблемы",
+                    "script": "yandex_export",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Ссылки (по одной на строку, с протоколом или без)"}
+                    ]
+                }
+            ]
         },
         {
             "id": "sites",
