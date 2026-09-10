@@ -6,7 +6,7 @@ import requests
 
 BASE_URL = "https://api.webmaster.yandex.net/v4"
 MAX_ROWS = 3
-DEBUG = True
+DEBUG = False
 
 
 def log(msg):

@@ -808,6 +808,13 @@ function appendLog(key, line) {
         } catch (e) { /* ignore bad JSON */ }
         return;
     }
+    if (line.startsWith('__REPLACE_TABLE_ROW__:')) {
+        try {
+            const data = JSON.parse(line.slice(line.indexOf(':') + 1));
+            replaceTableRow(scriptId, data);
+        } catch (e) { /* ignore bad JSON */ }
+        return;
+    }
     if (line.startsWith('__TABLE_DONE__:')) {
         finalizeTable(scriptId);
         return;
@@ -936,6 +943,28 @@ function appendTableRow(scriptId, data) {
         tr.appendChild(td);
     }
     tbody.appendChild(tr);
+}
+
+function replaceTableRow(scriptId, data) {
+    const el = document.getElementById(`${scriptId}-report`);
+    if (!el) return;
+    el.classList.remove('hidden');
+    const tbody = el.querySelector('tbody');
+    if (!tbody) return;
+
+    const site = data.site || '';
+    const cells = data.cells || [];
+
+    for (const row of tbody.rows) {
+        if (row.cells.length > 0 && row.cells[0].textContent.trim() === site) {
+            for (let i = 0; i < cells.length; i++) {
+                if (i < row.cells.length) {
+                    row.cells[i].textContent = String(cells[i]);
+                }
+            }
+            break;
+        }
+    }
 }
 
 function finalizeTable(scriptId) {

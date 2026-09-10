@@ -4,7 +4,7 @@ import sys
 import time
 import requests
 
-DEBUG = True
+DEBUG = False
 
 
 def log(msg):
@@ -125,6 +125,22 @@ def try_verify(headers, user_id, host_id, method):
     return False, error_code
 
 
+def get_verification_status(headers, user_id, host_id):
+    url = f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts/{host_id}/verification'
+    log(f'GET verification status: {url}')
+    status, body, err = api_request('GET', url, headers)
+    if err:
+        log(f'  Ошибка получения статуса: {err}')
+        return None, err
+    if status != 200:
+        error_code = body.get('error_code', f'HTTP {status}') if isinstance(body, dict) else f'HTTP {status}'
+        log(f'  Ошибка API: {error_code}')
+        return None, error_code
+    state = body.get('verification_state', '') if isinstance(body, dict) else ''
+    log(f'  verification_state: {state}')
+    return state, body if isinstance(body, dict) else None
+
+
 def main():
     config = load_config()
     script_data = load_script_data()
@@ -183,6 +199,10 @@ def main():
     already_verified = 0
     newly_verified = 0
     error_count = 0
+    meta_count = 0
+    html_count = 0
+    dns_count = 0
+    newly_verified_sites = {}  # site -> {host_id, method}
 
     for i, site in enumerate(sites, 1):
         print(f'🔄 [{i}/{len(sites)}] {site}')
@@ -190,10 +210,8 @@ def main():
         host_id, verified = get_host_id_from_url(all_hosts, site)
 
         if host_id and verified:
-            print(f'   ✅ Уже подтверждён')
             already_verified += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "✅ Уже подтверждён"]}, ensure_ascii=False)}')
-            time.sleep(0.3)
             continue
 
         if not host_id:
@@ -207,7 +225,6 @@ def main():
             print(f'   ❌ Не удалось получить код подтверждения: {err}')
             error_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ Ошибка: {err}"]}, ensure_ascii=False)}')
-            time.sleep(0.3)
             continue
 
         success = False
@@ -228,18 +245,80 @@ def main():
             time.sleep(0.3)
 
         if success:
-            print(f'   ✅ Подтверждено через {used_method}')
             newly_verified += 1
+            newly_verified_sites[site] = {"host_id": host_id, "method": used_method}
+            if 'META_TAG' in used_method:
+                meta_count += 1
+            elif 'HTML_FILE' in used_method:
+                html_count += 1
+            elif 'DNS' in used_method:
+                dns_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"✅ {used_method}"]}, ensure_ascii=False)}')
         else:
             print(f'   ❌ Ни один метод не сработал')
             error_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "❌ Все методы не сработали"]}, ensure_ascii=False)}')
 
-        time.sleep(0.5)
+    if newly_verified_sites:
+        print(f'ℹ️  Жду 10 сек перед повторной проверкой статуса...')
+        time.sleep(10)
+        print(f'ℹ️  Перепроверяю статус подтверждения ({len(newly_verified_sites)} сайтов)...')
+        status, hosts_data, err = api_request(
+            'GET',
+            f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts',
+            headers
+        )
+        fresh_hosts = None
+        if err:
+            log(f'  Ошибка повторного получения списка сайтов: {err}')
+        elif status == 200 and isinstance(hosts_data, dict):
+            fresh_hosts = hosts_data.get('hosts', [])
+
+        failed_sites = []
+        for site, info in newly_verified_sites.items():
+            if fresh_hosts is not None and fresh_hosts:
+                fresh_host_id, fresh_verified = get_host_id_from_url(fresh_hosts, site)
+            else:
+                fresh_host_id, fresh_verified = info['host_id'], None
+
+            if fresh_verified:
+                log(f'  {site} → confirmed (verified=True)')
+                continue
+
+            state, body = get_verification_status(headers, user_id, fresh_host_id or info['host_id'])
+            if state is None:
+                continue
+
+            if state in ('VERIFICATION_FAILED', 'INTERNAL_ERROR'):
+                failed_sites.append((site, state))
+                log(f'  {site} → FAILED: {state}')
+
+        if failed_sites:
+            print(f'⚠️  Обнаружены сайты, не подтверждённые повторной проверкой: {len(failed_sites)}')
+            for site, details in failed_sites:
+                info = newly_verified_sites[site]
+                method = info['method']
+                if 'META_TAG' in method:
+                    meta_count -= 1
+                elif 'HTML_FILE' in method:
+                    html_count -= 1
+                elif 'DNS' in method:
+                    dns_count -= 1
+                newly_verified -= 1
+                error_count += 1
+                print(f'__REPLACE_TABLE_ROW__:{json.dumps({"site": site, "cells": [site, f"❌ {details}"]}, ensure_ascii=False)}')
 
     print()
-    print(f'__SUMMARY__:{json.dumps({"Всего": len(sites), "Уже подтверждены": already_verified, "Подтверждено": newly_verified, "Ошибок": error_count}, ensure_ascii=False)}')
+    summary = {
+        "Всего": len(sites),
+        "Уже подтверждены": already_verified,
+        "Подтверждено": newly_verified,
+        "  через META_TAG": meta_count,
+        "  через HTML_FILE": html_count,
+        "  через DNS": dns_count,
+        "Ошибок": error_count
+    }
+    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
     print('__TABLE_DONE__:{}')
 
 
