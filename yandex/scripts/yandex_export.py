@@ -200,18 +200,6 @@ def main():
 
         verified_str = "✓" if h_verified else "✗"
 
-        data_status = "-"
-        if need_status:
-            details, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}", headers)
-            data_status = "-"
-            if err:
-                print(f"⚠️  Ошибка получения статуса сайта {hid}: {err}")
-                data_status = "NONE"
-            else:
-                data_status = details.get("host_data_status", "-")
-                if data_status != "OK":
-                    not_ok_count += 1
-
         own_main = host.get("main_mirror") or {}
         if own_main.get("unicode_host_url"):
             mirror_cell = [f"→ {extract_site_url(own_main['unicode_host_url'])}"]
@@ -221,105 +209,127 @@ def main():
             mirrors_count += 1
 
         cells = [site, verified_str]
+
+        data_status = "-"
         if need_status:
+            if h_verified:
+                details, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}", headers)
+                data_status = "-"
+                if err:
+                    print(f"⚠️  Ошибка получения статуса сайта {hid}: {err}")
+                    data_status = "NONE"
+                else:
+                    data_status = details.get("host_data_status", "-")
+                    if data_status != "OK":
+                        not_ok_count += 1
+            else:
+                data_status = "—"
             cells.append(data_status)
+
         cells.append(mirror_cell)
 
         sitemaps_cell = "NONE"
         if need_sitemaps:
-            sitemaps_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/sitemaps", headers)
-            sitemaps_list = []
-            sitemap_ids_in_api = set()
-            if err:
-                print(f"⚠️  Ошибка получения сайтмапов {hid}: {err}")
-                sitemaps_cell = "NONE"
-            else:
-                for s in sitemaps_data.get("sitemaps", []):
-                    sitemap_ids_in_api.add(s.get("sitemap_id", ""))
-                    sitemaps_list.append({
-                        "url": s.get("sitemap_url", ""),
-                        "path": make_sitemap_path(s.get("sitemap_url", ""), h_url),
-                        "errors_count": s.get("errors_count", 0),
-                        "sitemap_id": s.get("sitemap_id", "")
-                    })
-
-                user_sitemaps_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/user-added-sitemaps", headers)
-                pending_sitemaps = []
+            if h_verified:
+                sitemaps_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/sitemaps", headers)
+                sitemaps_list = []
+                sitemap_ids_in_api = set()
                 if err:
-                    print(f"⚠️  Ошибка получения добавленных сайтмапов {hid}: {err}")
+                    print(f"⚠️  Ошибка получения сайтмапов {hid}: {err}")
                     sitemaps_cell = "NONE"
                 else:
-                    for us in user_sitemaps_data.get("sitemaps", []):
-                        us_id = us.get("sitemap_id", "")
-                        us_url = us.get("sitemap_url", "")
-                        if us_id not in sitemap_ids_in_api:
-                            pending_sitemaps.append({
-                                "url": us_url,
-                                "path": make_sitemap_path(us_url, h_url),
-                                "errors_count": 0,
-                                "sitemap_id": us_id,
-                                "pending": True
-                            })
+                    for s in sitemaps_data.get("sitemaps", []):
+                        sitemap_ids_in_api.add(s.get("sitemap_id", ""))
+                        sitemaps_list.append({
+                            "url": s.get("sitemap_url", ""),
+                            "path": make_sitemap_path(s.get("sitemap_url", ""), h_url),
+                            "errors_count": s.get("errors_count", 0),
+                            "sitemap_id": s.get("sitemap_id", "")
+                        })
 
-                    all_sitemaps = sitemaps_list + pending_sitemaps
+                    user_sitemaps_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/user-added-sitemaps", headers)
+                    pending_sitemaps = []
+                    if err:
+                        print(f"⚠️  Ошибка получения добавленных сайтмапов {hid}: {err}")
+                        sitemaps_cell = "NONE"
+                    else:
+                        for us in user_sitemaps_data.get("sitemaps", []):
+                            us_id = us.get("sitemap_id", "")
+                            us_url = us.get("sitemap_url", "")
+                            if us_id not in sitemap_ids_in_api:
+                                pending_sitemaps.append({
+                                    "url": us_url,
+                                    "path": make_sitemap_path(us_url, h_url),
+                                    "errors_count": 0,
+                                    "sitemap_id": us_id,
+                                    "pending": True
+                                })
 
-                    has_correct = False
-                    for s in all_sitemaps:
-                        if s["path"] in correct_sitemaps:
-                            has_correct = True
-                            break
-                    if not has_correct and correct_sitemaps:
-                        without_correct_sitemap_count += 1
+                        all_sitemaps = sitemaps_list + pending_sitemaps
 
-                    has_wrong = False
-                    for s in all_sitemaps:
-                        if s["path"] not in correct_sitemaps:
-                            has_wrong = True
-                            break
-                    if has_wrong:
-                        with_wrong_sitemaps_count += 1
+                        has_correct = False
+                        for s in all_sitemaps:
+                            if s["path"] in correct_sitemaps:
+                                has_correct = True
+                                break
+                        if not has_correct and correct_sitemaps:
+                            without_correct_sitemap_count += 1
 
-                    has_sitemap_not_ok = any(
-                        not s.get("pending") and s["errors_count"] > 0 for s in all_sitemaps
-                    )
-                    if has_sitemap_not_ok:
-                        sitemaps_not_ok_count += 1
+                        has_wrong = False
+                        for s in all_sitemaps:
+                            if s["path"] not in correct_sitemaps:
+                                has_wrong = True
+                                break
+                        if has_wrong:
+                            with_wrong_sitemaps_count += 1
 
-                    sitemap_cells = []
-                    status_cells = []
-                    for s in all_sitemaps:
-                        sitemap_cells.append(s["path"])
-                        if s.get("pending"):
-                            status_cells.append("В обработке")
-                        elif s["errors_count"] == 0:
-                            status_cells.append("OK")
-                        else:
-                            status_cells.append("ERROR")
+                        has_sitemap_not_ok = any(
+                            not s.get("pending") and s["errors_count"] > 0 for s in all_sitemaps
+                        )
+                        if has_sitemap_not_ok:
+                            sitemaps_not_ok_count += 1
 
-                    sitemaps_display = sitemap_cells if sitemap_cells else ["-"]
-                    statuses_display = status_cells if status_cells else ["-"]
-                    sitemaps_cell = [{"path": p, "status": st} for p, st in zip(sitemaps_display, statuses_display)]
+                        sitemap_cells = []
+                        status_cells = []
+                        for s in all_sitemaps:
+                            sitemap_cells.append(s["path"])
+                            if s.get("pending"):
+                                status_cells.append("В обработке")
+                            elif s["errors_count"] == 0:
+                                status_cells.append("OK")
+                            else:
+                                status_cells.append("ERROR")
 
+                        sitemaps_display = sitemap_cells if sitemap_cells else ["-"]
+                        statuses_display = status_cells if status_cells else ["-"]
+                        sitemaps_cell = [{"path": p, "status": st} for p, st in zip(sitemaps_display, statuses_display)]
+
+            else:
+                sitemaps_cell = "—"
             cells.append(sitemaps_cell)
 
         rec_cell = "NONE"
         err_cell = "NONE"
         if need_problems:
-            summary_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/summary", headers)
-            if err:
-                print(f"⚠️  Ошибка получения проверок {hid}: {err}")
+            if h_verified:
+                summary_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/summary", headers)
+                if err:
+                    print(f"⚠️  Ошибка получения проверок {hid}: {err}")
+                else:
+                    site_problems = summary_data.get("site_problems", {})
+                    recommendations = site_problems.get("POSSIBLE_PROBLEM", 0) + site_problems.get("RECOMMENDATION", 0)
+                    errors = site_problems.get("CRITICAL", 0) + site_problems.get("FATAL", 0)
+
+                    if recommendations > 0:
+                        with_recommendations_count += 1
+                    if errors > 0:
+                        with_errors_count += 1
+
+                    rec_cell = recommendations
+                    err_cell = errors
             else:
-                site_problems = summary_data.get("site_problems", {})
-                recommendations = site_problems.get("POSSIBLE_PROBLEM", 0) + site_problems.get("RECOMMENDATION", 0)
-                errors = site_problems.get("CRITICAL", 0) + site_problems.get("FATAL", 0)
-
-                if recommendations > 0:
-                    with_recommendations_count += 1
-                if errors > 0:
-                    with_errors_count += 1
-
-                rec_cell = recommendations
-                err_cell = errors
+                rec_cell = "—"
+                err_cell = "—"
 
             cells += [rec_cell, err_cell]
 

@@ -21,14 +21,14 @@
                         "splitSummary": true,
                         "summaryLabel": "Быстрая сводка",
                         "exportGroups": [
-                            {"key": "status", "label": "Статус", "tooltip": "Статус сайта (host_data_status) из /hosts/{host-id}. Доп. 1 запрос на сайт"},
+                            {"key": "status", "label": "Индексация", "tooltip": "Индексируется ли сайт. +1 запрос на сайт"},
                             {"key": "sitemaps", "label": "Сайтмапы", "tooltip": "Пути и статусы сайтмап. +2 запроса на сайт"},
                             {"key": "problems", "label": "Проверки", "tooltip": "Рекомендации, Ошибки. +1 запрос на сайт"}
                         ],
                         "columns": [
                             {"depends": "always", "label": "Сайт", "width": "200px"},
                             {"depends": "always", "label": "Права", "width": "90px", "center": true},
-                            {"depends": "status", "label": "Статус", "width": "90px", "center": true},
+                            {"depends": "status", "label": "Индексация", "width": "100px", "center": true},
                             {"depends": "always", "label": "Зеркала", "width": "140px"},
                             {"depends": "sitemaps", "label": "Сайтмапы", "width": "130px"},
                             {"depends": "problems", "label": "Рекоменд.", "width": "90px", "center": true},
@@ -174,9 +174,29 @@
                     "id": "add",
                     "name": "Добавление",
                     "description": "Добавление sitemap в Яндекс.Вебмастер через API",
-                    "script": "sitemap",
+                    "script": "yandex_add_sitemap",
                     "type": "api",
-                    "fields": ["links", "yandexSettings"]
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления сайтмапа (по одному на строку)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты добавления сайтмапов",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Сайтмап", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего", "depends": "always"},
+                            {"key": "Добавлено", "depends": "always"},
+                            {"key": "Уже было", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 },
                 {
                     "id": "resend",

@@ -1,5 +1,4 @@
 let runningScripts = {};
-window._panelCache = {};
 
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
@@ -342,6 +341,7 @@ function renderServicePage(service) {
     }
 
     renderCategoryNav(service, registry);
+    renderAllScriptPanels(service, registry);
 }
 
 // ======================== НАВИГАЦИЯ ПО КАТЕГОРИЯМ ========================
@@ -553,22 +553,26 @@ function renderScriptPanel(service, scriptName, subcategory) {
 
     const scriptId = `${service}-${scriptName}`;
 
-    const prevTbody = document.querySelector(`#${scriptId}-report tbody`);
-    const prevSummary = document.getElementById(`${scriptId}-summary`);
-    const prevStatus = document.getElementById(`${scriptId}-status`);
-    const prevActions = document.querySelector(`#${scriptId}-report .table-actions`);
-    const prevLogs = document.getElementById(`${scriptId}-logs`);
-    if (prevTbody || prevSummary || prevStatus) {
-        window._panelCache[scriptId] = {
-            tbody: prevTbody ? prevTbody.innerHTML : '',
-            summary: prevSummary ? prevSummary.innerHTML : '',
-            statusText: prevStatus ? prevStatus.textContent : '',
-            statusColor: prevStatus ? prevStatus.style.color : '',
-            actions: prevActions ? prevActions.outerHTML : '',
-            logs: prevLogs ? prevLogs.innerHTML : ''
-        };
+    container.querySelectorAll('.script-panel-wrapper').forEach(w => w.classList.add('hidden'));
+
+    const existing = document.getElementById(`${scriptId}-wrapper`);
+    if (existing) {
+        existing.classList.remove('hidden');
+        return;
     }
 
+    const wrapper = document.createElement('div');
+    wrapper.className = 'script-panel-wrapper';
+    wrapper.id = `${scriptId}-wrapper`;
+    wrapper.innerHTML = buildScriptPanelHtml(service, scriptName, subcategory);
+    container.appendChild(wrapper);
+
+    const layout = getScriptLayout(service, scriptName) || {};
+    if (layout.splitSummary) renderSummary(scriptId, null, getSavedSelection(service, scriptName, layout));
+}
+
+function buildScriptPanelHtml(service, scriptName, subcategory) {
+    const scriptId = `${service}-${scriptName}`;
     const fields = subcategory.fields || [];
     const savedData = window._scriptsData[service][scriptName] || {};
     const scriptInfo = window._scriptsLists[service].find(s => s.name === scriptName);
@@ -618,7 +622,7 @@ function renderScriptPanel(service, scriptName, subcategory) {
 
     const theadHtml = buildTheadHtml(layout, selection);
 
-    container.innerHTML = `
+    return `
         <div class="card script-panel" id="${scriptId}-card">
             <div class="card__header" style="justify-content: space-between;">
                 <div style="display:flex; gap:8px; align-items:center;">
@@ -646,30 +650,25 @@ function renderScriptPanel(service, scriptName, subcategory) {
             </div>
         </div>
     `;
+}
 
-    const cached = window._panelCache[scriptId];
-    if (cached) {
-        const newTbody = document.querySelector(`#${scriptId}-report tbody`);
-        if (newTbody && cached.tbody) newTbody.innerHTML = cached.tbody;
-        const newSummary = document.getElementById(`${scriptId}-summary`);
-        if (newSummary && cached.summary) {
-            newSummary.innerHTML = cached.summary;
-            newSummary.classList.remove('hidden');
-        }
-        const newStatus = document.getElementById(`${scriptId}-status`);
-        if (newStatus && cached.statusText) {
-            newStatus.textContent = cached.statusText;
-            newStatus.style.color = cached.statusColor;
-        }
-        if (cached.actions) {
-            const report = document.getElementById(`${scriptId}-report`);
-            if (report) report.insertAdjacentHTML('beforeend', cached.actions);
-        }
-        const newLogs = document.getElementById(`${scriptId}-logs`);
-        if (newLogs && cached.logs) newLogs.innerHTML = cached.logs;
-    } else if (layout.splitSummary) {
-        renderSummary(scriptId, null, selection);
-    }
+function renderAllScriptPanels(service, registry) {
+    const container = document.getElementById(`${service}-script-content`);
+    if (!container) return;
+    (registry.categories || []).forEach(cat => {
+        (cat.subcategories || []).forEach(sub => {
+            if (!sub.script) return;
+            const wrapperId = `${service}-${sub.script}-wrapper`;
+            if (document.getElementById(wrapperId)) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'script-panel-wrapper hidden';
+            wrapper.id = wrapperId;
+            wrapper.innerHTML = buildScriptPanelHtml(service, sub.script, sub);
+            container.appendChild(wrapper);
+            const layout = getScriptLayout(service, sub.script) || {};
+            if (layout.splitSummary) renderSummary(`${service}-${sub.script}`, null, getSavedSelection(service, sub.script, layout));
+        });
+    });
 }
 
 // ======================== СОХРАНЕНИЕ/ЗАПУСК СКРИПТОВ ========================
@@ -748,7 +747,6 @@ function getScriptInputs(scriptId) {
 
 async function runScript(service, script) {
     const scriptId = `${service}-${script}`;
-    delete window._panelCache[scriptId];
     const layout = getScriptLayout(service, script) || {};
     const statusEl = document.getElementById(`${scriptId}-status`);
     const logsEl = document.getElementById(`${scriptId}-logs`);
@@ -765,6 +763,8 @@ async function runScript(service, script) {
     if (reportEl) {
         const tbody = reportEl.querySelector('tbody');
         if (tbody) tbody.innerHTML = '';
+        const prevActions = reportEl.querySelector('.table-actions');
+        if (prevActions) prevActions.remove();
     }
     if (summaryEl) {
         if (layout.splitSummary) {
