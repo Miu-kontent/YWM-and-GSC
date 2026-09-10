@@ -4,6 +4,20 @@ import sys
 import time
 import requests
 
+DEBUG = False
+
+
+def log(msg):
+    if DEBUG:
+        print(f'[DEBUG] {msg}')
+
+
+def log_api(method, url, status, body=None):
+    if DEBUG:
+        log(f'{method} {url} → {status}')
+        if body is not None:
+            log(f'  body: {json.dumps(body, ensure_ascii=False)[:500]}')
+
 
 def load_script_data():
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,69 +38,78 @@ def load_config():
     return {}
 
 
-def extract_site_url(url):
+def normalize_url(url):
     if not url:
         return ''
-    if '://' in url:
-        url = url.split('://', 1)[1]
-    return url.rstrip('/')
+    url = url.strip()
+    if '://' not in url:
+        url = 'http://' + url
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host = parsed.hostname or ''
+    port = parsed.port
+    scheme = parsed.scheme or 'http'
+    if port and ((scheme == 'http' and port != 80) or (scheme == 'https' and port != 443)):
+        return f'{scheme}:{host}:{port}'
+    return f'{scheme}:{host}:{"443" if scheme == "https" else "80"}'
+
+
+def normalize_unicode_url(url):
+    if not url:
+        return ''
+    url = url.strip()
+    if '://' not in url:
+        url = 'http://' + url
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host = (parsed.hostname or '').lower()
+    return host
 
 
 def get_host_id_from_url(hosts, target_url):
-    target = extract_site_url(target_url).lower()
+    target = normalize_unicode_url(target_url)
+    log(f'Ищу хост для "{target_url}" (normalized: "{target}")')
+    log(f'Доступные хосты ({len(hosts)}):')
     for h in hosts:
-        h_url = extract_site_url(h.get('unicode_host_url', '')).lower()
-        if h_url == target:
-            return h.get('host_id')
+        h_url = h.get('unicode_host_url', '')
+        h_id = h.get('host_id', '')
+        log(f'  host_id={h_id}  unicode_url={h_url}')
+        if normalize_unicode_url(h_url) == target:
+            log(f'  → СОВПАДЕНИЕ: host_id={h_id}')
+            return h_id
+    log(f'  → СОВПАДЕНИЕ НЕ НАЙДЕНО для "{target}"')
     return None
 
 
-def api_get(url, headers, params=None, retries=5, timeout=3):
+def api_request(method, url, headers, params=None, retries=5, timeout=5):
     for attempt in range(retries):
         try:
-            resp = requests.get(url, headers=headers, params=params, timeout=timeout)
-            if resp.status_code == 200:
-                return resp.json(), None
-            return None, f"HTTP {resp.status_code}"
-        except requests.exceptions.ConnectionError:
-            if attempt == retries - 1:
-                return None, f"Соединение не установлено после {retries} попыток"
-            time.sleep(1)
-        except requests.exceptions.Timeout:
-            if attempt == retries - 1:
-                return None, f"Превышен таймаут ({timeout}с) после {retries} попыток"
-            time.sleep(1)
-        except Exception as e:
-            return None, str(e)
-    return None, "Unknown error"
-
-
-def api_delete(url, headers, retries=3, timeout=10):
-    for attempt in range(retries):
-        try:
-            resp = requests.delete(url, headers=headers, timeout=timeout)
+            resp = requests.request(method, url, headers=headers, params=params, timeout=timeout)
+            log_api(method, url, resp.status_code)
             if resp.status_code in (200, 204):
-                return True, None
-            if resp.status_code == 404:
-                return False, "HOST_NOT_FOUND"
-            if resp.status_code == 403:
-                return False, "INVALID_USER_ID"
+                try:
+                    body = resp.json()
+                except Exception:
+                    body = None
+                log_api(method, url, resp.status_code, body)
+                return resp.status_code, body, None
             try:
-                err = resp.json()
-                return False, err.get('error_code', f"HTTP {resp.status_code}")
+                err_body = resp.json()
             except Exception:
-                return False, f"HTTP {resp.status_code}"
+                err_body = {"raw": resp.text[:500]}
+            log_api(method, url, resp.status_code, err_body)
+            return resp.status_code, err_body, None
         except requests.exceptions.ConnectionError:
             if attempt == retries - 1:
-                return False, f"Соединение не установлено после {retries} попыток"
-            time.sleep(2)
+                return None, None, f"Соединение не установлено после {retries} попыток"
+            time.sleep(1)
         except requests.exceptions.Timeout:
             if attempt == retries - 1:
-                return False, f"Превышен таймаут ({timeout}с) после {retries} попыток"
-            time.sleep(2)
+                return None, None, f"Превышен таймаут ({timeout}с) после {retries} попыток"
+            time.sleep(1)
         except Exception as e:
-            return False, str(e)
-    return False, "Unknown error"
+            return None, None, str(e)
+    return None, None, "Unknown error"
 
 
 def main():
@@ -109,7 +132,7 @@ def main():
     if isinstance(links_raw, str):
         sites_to_delete = [l.strip() for l in links_raw.strip().split('\n') if l.strip()]
     elif isinstance(links_raw, list):
-        sites_to_delete = links_raw
+        sites_to_delete = list(links_raw)
     else:
         sites_to_delete = []
 
@@ -119,21 +142,41 @@ def main():
 
     headers = {'Authorization': f'OAuth {token}'}
 
+    log(f'token: {token[:20]}...')
+    log(f'user_id: {user_id}')
+    log(f'Сайтов к удалению: {len(sites_to_delete)}')
+    log(f'Список: {sites_to_delete}')
+
     print(f'ℹ️  user_id: {user_id}')
     print(f'ℹ️  Сайтов к удалению: {len(sites_to_delete)}')
-    print()
 
-    hosts_data, err = api_get(f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts', headers)
+    log('Получаю список всех сайтов из вебмастера...')
+    status, hosts_data, err = api_request(
+        'GET',
+        f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts',
+        headers
+    )
     if err:
         print(f'⚠️  Ошибка получения списка сайтов: {err}')
         return
+    if status != 200:
+        error_msg = hosts_data.get('error_message', f'HTTP {status}') if isinstance(hosts_data, dict) else f'HTTP {status}'
+        print(f'⚠️  Ошибка получения списка сайтов: {error_msg}')
+        if hosts_data:
+            print(f'   Ответ API: {json.dumps(hosts_data, ensure_ascii=False)[:300]}')
+        return
 
-    all_hosts = hosts_data.get('hosts', [])
+    all_hosts = hosts_data.get('hosts', []) if isinstance(hosts_data, dict) else []
+    log(f'Получено хостов: {len(all_hosts)}')
+
+    if not all_hosts:
+        print('⚠️  Список сайтов пуст — ни одного сайта в вебмастере не найдено')
+        print(f'   Ответ API: {json.dumps(hosts_data, ensure_ascii=False)[:300]}')
+        return
 
     deleted_count = 0
     not_found_count = 0
     error_count = 0
-    errors = []
 
     for i, site in enumerate(sites_to_delete, 1):
         print(f'🔄 [{i}/{len(sites_to_delete)}] {site}')
@@ -142,24 +185,31 @@ def main():
         if not host_id:
             print(f'   ❌ Не найден в вебмастере')
             not_found_count += 1
-            errors.append({'site': site, 'error': 'HOST_NOT_FOUND'})
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "❌ Не найден"]}, ensure_ascii=False)}')
             continue
 
         delete_url = f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts/{host_id}'
-        success, err = api_delete(delete_url, headers)
+        log(f'Удаляю: DELETE {delete_url}')
+        status, body, err = api_request('DELETE', delete_url, headers)
 
-        if success:
-            print(f'   ✅ Удалён (host_id: {host_id})')
+        if err:
+            print(f'   ❌ Ошибка соединения: {err}')
+            error_count += 1
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ {err}"]}, ensure_ascii=False)}')
+        elif status in (200, 204):
             deleted_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "✅ Удалён"]}, ensure_ascii=False)}')
         else:
-            print(f'   ❌ Ошибка: {err}')
+            error_code = body.get('error_code', f'HTTP {status}') if isinstance(body, dict) else f'HTTP {status}'
+            error_msg = body.get('error_message', '') if isinstance(body, dict) else ''
+            detail = f'{error_code}: {error_msg}' if error_msg else error_code
+            print(f'   ❌ Ошибка: {detail}')
+            if DEBUG and body:
+                print(f'   [DEBUG] Ответ: {json.dumps(body, ensure_ascii=False)[:300]}')
             error_count += 1
-            errors.append({'site': site, 'error': err})
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ {err}"]}, ensure_ascii=False)}')
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ {error_code}"]}, ensure_ascii=False)}')
 
-        time.sleep(0.5)
+        # time.sleep(0.2)
 
     print()
     print(f'__SUMMARY__:{json.dumps({"Всего": len(sites_to_delete), "Удалено": deleted_count, "Не найдено": not_found_count, "Ошибок": error_count}, ensure_ascii=False)}')

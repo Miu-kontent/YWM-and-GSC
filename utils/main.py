@@ -294,11 +294,14 @@ class Api:
             self.running_processes.pop(key, None)
 
         try:
+            env = os.environ.copy()
+            env['PYTHONUTF8'] = '1'
             proc = subprocess.Popen(
                 cmd,
                 cwd=service_dir,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env
             )
             self.running_processes[process_key] = proc
             thread = threading.Thread(target=stream_output, args=(proc, process_key), daemon=True)

@@ -1,4 +1,5 @@
 let runningScripts = {};
+window._panelCache = {};
 
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
@@ -507,7 +508,7 @@ function getSavedSelection(service, scriptName, layout) {
 }
 
 function getVisibleColumns(layout, selection) {
-    if (layout.columns && layout.exportGroups) {
+    if (layout.columns) {
         return layout.columns.filter(c => c.depends === 'always' || selection.includes(c.depends));
     }
     const headers = layout.tableHeaders || DEFAULT_TABLE_HEADERS;
@@ -551,6 +552,23 @@ function renderScriptPanel(service, scriptName, subcategory) {
     if (!container) return;
 
     const scriptId = `${service}-${scriptName}`;
+
+    const prevTbody = document.querySelector(`#${scriptId}-report tbody`);
+    const prevSummary = document.getElementById(`${scriptId}-summary`);
+    const prevStatus = document.getElementById(`${scriptId}-status`);
+    const prevActions = document.querySelector(`#${scriptId}-report .table-actions`);
+    const prevLogs = document.getElementById(`${scriptId}-logs`);
+    if (prevTbody || prevSummary || prevStatus) {
+        window._panelCache[scriptId] = {
+            tbody: prevTbody ? prevTbody.innerHTML : '',
+            summary: prevSummary ? prevSummary.innerHTML : '',
+            statusText: prevStatus ? prevStatus.textContent : '',
+            statusColor: prevStatus ? prevStatus.style.color : '',
+            actions: prevActions ? prevActions.outerHTML : '',
+            logs: prevLogs ? prevLogs.innerHTML : ''
+        };
+    }
+
     const fields = subcategory.fields || [];
     const savedData = window._scriptsData[service][scriptName] || {};
     const scriptInfo = window._scriptsLists[service].find(s => s.name === scriptName);
@@ -629,7 +647,29 @@ function renderScriptPanel(service, scriptName, subcategory) {
         </div>
     `;
 
-    if (layout.splitSummary) renderSummary(scriptId, null, selection);
+    const cached = window._panelCache[scriptId];
+    if (cached) {
+        const newTbody = document.querySelector(`#${scriptId}-report tbody`);
+        if (newTbody && cached.tbody) newTbody.innerHTML = cached.tbody;
+        const newSummary = document.getElementById(`${scriptId}-summary`);
+        if (newSummary && cached.summary) {
+            newSummary.innerHTML = cached.summary;
+            newSummary.classList.remove('hidden');
+        }
+        const newStatus = document.getElementById(`${scriptId}-status`);
+        if (newStatus && cached.statusText) {
+            newStatus.textContent = cached.statusText;
+            newStatus.style.color = cached.statusColor;
+        }
+        if (cached.actions) {
+            const report = document.getElementById(`${scriptId}-report`);
+            if (report) report.insertAdjacentHTML('beforeend', cached.actions);
+        }
+        const newLogs = document.getElementById(`${scriptId}-logs`);
+        if (newLogs && cached.logs) newLogs.innerHTML = cached.logs;
+    } else if (layout.splitSummary) {
+        renderSummary(scriptId, null, selection);
+    }
 }
 
 // ======================== СОХРАНЕНИЕ/ЗАПУСК СКРИПТОВ ========================
@@ -708,6 +748,7 @@ function getScriptInputs(scriptId) {
 
 async function runScript(service, script) {
     const scriptId = `${service}-${script}`;
+    delete window._panelCache[scriptId];
     const layout = getScriptLayout(service, script) || {};
     const statusEl = document.getElementById(`${scriptId}-status`);
     const logsEl = document.getElementById(`${scriptId}-logs`);
@@ -778,6 +819,7 @@ function appendLog(key, line) {
     const layout = getScriptLayout(service, script) || {};
 
     if (layout.hideLogs && layout.statusRolling) {
+        console.log(`[${scriptId}] ${line}`);
         const statusEl = document.getElementById(`${scriptId}-status`);
         if (statusEl && line.trim()) {
             statusEl.textContent = line;

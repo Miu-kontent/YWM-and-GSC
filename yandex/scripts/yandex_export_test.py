@@ -6,6 +6,12 @@ import requests
 
 BASE_URL = "https://api.webmaster.yandex.net/v4"
 MAX_ROWS = 3
+DEBUG = True
+
+
+def log(msg):
+    if DEBUG:
+        print(f'[DEBUG] {msg}')
 
 
 def load_config():
@@ -31,11 +37,19 @@ def load_script_data():
 
 def api_get(url, headers, params=None):
     try:
+        log(f'GET {url}')
         resp = requests.get(url, headers=headers, params=params, timeout=15)
+        log(f'  → {resp.status_code}')
         if resp.status_code == 200:
             return resp.json(), None
+        try:
+            err_body = resp.json()
+            log(f'  body: {json.dumps(err_body, ensure_ascii=False)[:300]}')
+        except Exception:
+            log(f'  raw: {resp.text[:300]}')
         return None, f"HTTP {resp.status_code}"
     except Exception as e:
+        log(f'  error: {e}')
         return None, str(e)
 
 
@@ -75,7 +89,18 @@ def print_kv(data, keys=None):
         print(f"ℹ️  {key}: {val}")
 
 
-def export_hosts(headers, user_id):
+def normalize_host(url):
+    if not url:
+        return ''
+    url = url.strip()
+    if '://' not in url:
+        url = 'http://' + url
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    return (parsed.hostname or '').lower()
+
+
+def export_hosts(headers, user_id, filter_links=None):
     print()
     print("ℹ️ === GET /user/{user_id}/hosts ===")
     print()
@@ -86,10 +111,31 @@ def export_hosts(headers, user_id):
         return []
 
     hosts = data.get("hosts", [])
-    total = len(hosts)
-    print(f"ℹ️  Всего сайтов: {total}")
+    total_all = len(hosts)
+    log(f'Всего хостов от API: {total_all}')
+
+    if filter_links:
+        filter_set = {normalize_host(link) for link in filter_links}
+        log(f'Фильтр ({len(filter_set)} доменов): {filter_set}')
+        matched = []
+        for h in hosts:
+            h_norm = normalize_host(h.get("unicode_host_url", ""))
+            if h_norm in filter_set:
+                log(f'  ✓ {h.get("unicode_host_url", "")} → host_id={h.get("host_id", "")}')
+                matched.append(h)
+            else:
+                pass
+        not_found = filter_set - {normalize_host(h.get("unicode_host_url", "")) for h in matched}
+        if not_found:
+            log(f'  ✗ Не найдены: {not_found}')
+        hosts = matched
+        print(f"ℹ️  Фильтр: указано {len(filter_links)} сайтов, найдено {len(hosts)} из {total_all}")
+    else:
+        print(f"ℹ️  Всего сайтов: {total_all}")
+
     print()
 
+    total = len(hosts)
     rows = []
     for h in hosts[:MAX_ROWS]:
         main_mirror = h.get("main_mirror", {})
@@ -488,9 +534,25 @@ def main():
     broken_indicator = script_data.get("broken_indicator", "")
     site_url = config.get("sitemap_path", "")
 
+    links_raw = script_data.get("links", "")
+    if isinstance(links_raw, str):
+        filter_links = [l.strip() for l in links_raw.strip().split('\n') if l.strip()] or None
+    elif isinstance(links_raw, list):
+        filter_links = links_raw if links_raw else None
+    else:
+        filter_links = None
+
+    log(f'token: {token[:20]}...')
+    log(f'user_id: {user_id}')
+    log(f'filter_links: {filter_links}')
+    log(f'date_from: {date_from}, date_to: {date_to}')
+    log(f'query_indicator: {query_indicator}, broken_indicator: {broken_indicator}')
+
     headers = {"Authorization": f"OAuth {token}"}
 
     print(f"ℹ️  user_id: {user_id}")
+    if filter_links:
+        print(f"ℹ️  Сайтов для анализа: {len(filter_links)}")
     if date_from:
         print(f"ℹ️  date_from: {date_from}")
     if date_to:
@@ -500,7 +562,7 @@ def main():
     if broken_indicator:
         print(f"ℹ️  broken_indicator: {broken_indicator}")
 
-    hosts = export_hosts(headers, user_id)
+    hosts = export_hosts(headers, user_id, filter_links)
 
     for host in hosts:
         hid = host.get("host_id", "")
