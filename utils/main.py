@@ -315,10 +315,13 @@ class Api:
         if not os.path.exists(script_path):
             return {"success": False, "message": f"{script_name}.py не найден", "log": []}
         try:
+            env = os.environ.copy()
+            env['PYTHONUTF8'] = '1'
             proc = subprocess.run(
                 [sys.executable, script_path],
                 cwd=self.yandex_dir,
-                capture_output=True, text=True, timeout=180, encoding="utf-8"
+                capture_output=True, text=True, timeout=180, encoding="utf-8",
+                env=env
             )
             log_lines = proc.stdout.splitlines()
             return {"success": proc.returncode == 0, "log": log_lines, "stdout": proc.stdout}
@@ -350,6 +353,28 @@ class Api:
             config["user_id"] = user_id
             self.save_config("yandex", config)
         return {"success": bool(user_id), "user_id": user_id or "", "log": result.get("log", [])}
+
+    def start_yandex_get_metrika_id(self):
+        result = self._run_yandex_script("yandex_metrika_getcounter")
+        metric_id = None
+        for line in result.get("log", []):
+            if line.startswith("METRIKA_ID:"):
+                metric_id = line.split(":", 1)[1].strip()
+        if metric_id:
+            config = self.get_config("yandex")
+            config["metric_id"] = metric_id
+            self.save_config("yandex", config)
+
+        msg = result.get("message", "")
+        if not metric_id and not msg:
+            for line in result.get("log", []):
+                if line.startswith("⚠️") or line.startswith("❌"):
+                    msg = line
+                    break
+            if not msg:
+                msg = "Счётчик не получен"
+
+        return {"success": bool(metric_id), "metric_id": metric_id or "", "message": msg, "log": result.get("log", [])}
 
 def main():
     shell32 = ctypes.windll.shell32

@@ -253,6 +253,27 @@ async function getYandexUserId() {
         btn.textContent = '🔑 Получить';
     }
 }
+async function getYandexMetricId() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Получение';
+    try {
+        const result = await window.pywebview.api.start_yandex_get_metrika_id();
+        if (result.log) result.log.forEach(line => console.log(`[yandex-metrika] ${line}`));
+        if (result.success) {
+            setKeyValue('yandex', 'metric_id', result.metric_id);
+            syncKeys('yandex', document.getElementById('tab-dashboard'));
+            showToast('Номер счётчика получен!', 'success');
+        } else {
+            showToast(result.message || 'Счётчик не получен', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Получить';
+    }
+}
 
 // ======================== НАВИГАЦИЯ ========================
 
