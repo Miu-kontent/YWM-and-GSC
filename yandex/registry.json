@@ -7,7 +7,7 @@
             "subcategories": [
                 {
                     "id": "yandex_export",
-                    "name": "Экспорт данных",
+                    "name": "Выгрузка из Вебмастера",
                     "description": "Выгрузка данных по сайтам: статусы, сайтмапы, проблемы",
                     "script": "yandex_export",
                     "type": "api",
@@ -44,6 +44,35 @@
                             {"key": "Без правильного сайтмапа", "depends": "sitemaps"},
                             {"key": "С неправильными сайтмапами", "depends": "sitemaps"},
                             {"key": "Сайтмапы не в OK", "depends": "sitemaps"}
+                        ]
+                    }
+                },
+                {
+                    "id": "metrika_export",
+                    "name": "Выгрузка счётчиков Метрики",
+                    "description": "Выгрузка зеркал счётчика Метрики: сайты и статусы привязки",
+                    "script": "yandex_metrika_export",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для фильтрации (по одному на строку, пусто = все)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка по счётчику",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Количество счетчиков", "depends": "always"},
+                            {"key": "Номер выбранного счётчика", "depends": "always"},
+                            {"key": "Количество сайтов", "depends": "always"},
+                            {"key": "Привязанных", "depends": "always"},
+                            {"key": "Не привязанных", "depends": "always"},
+                            {"key": "Проблемных", "depends": "always"}
                         ]
                     }
                 }
