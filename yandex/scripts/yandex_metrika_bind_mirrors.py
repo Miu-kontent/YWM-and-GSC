@@ -138,7 +138,7 @@ def wait_for_status(frame, domain, expected, timeout=15):
         last = status
         if status in expected:
             return True, status
-        time.sleep(0.5)
+        time.sleep(0.3)
     return False, last
 
 
@@ -323,7 +323,7 @@ def main():
                     domain = t['domain']
                     label = f'❌ {failed[domain]}' if domain in failed else '—'
                     targets_for_table.append((domain, label))
-            time.sleep(0.3)
+            # time.sleep(0.3)
 
             print()
             for domain, label in targets_for_table:

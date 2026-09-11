@@ -166,31 +166,37 @@
                             {"key": "Ошибок", "depends": "always"}
                         ]
                     }
-                }
-            ]
-        },
-        {
-            "id": "region",
-            "name": "Регион",
-            "description": "Управление регионами поддоменов",
-            "subcategories": [
-                {
-                    "id": "add",
-                    "name": "Добавление",
-                    "description": "Массовое добавление регионов поддоменам",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["links", "city", "contactPath"]
                 },
                 {
-                    "id": "check",
-                    "name": "Проверка",
-                    "description": "Проверка текущего региона поддоменов",
-                    "script": null,
+                    "id": "regions",
+                    "name": "Регионы",
+                    "description": "Добавление региона поддоменам (пустые списки = просто проверка)",
+                    "script": "yandex_region_add",
                     "type": "browser",
                     "port": 9229,
-                    "fields": ["links", "city"]
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты"},
+                        {"name": "city", "type": "textarea", "label": "Города"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты по регионам",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Город", "width": "250px"},
+                            {"depends": "always", "label": "Путь к контактам", "width": "260px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Путь контактов", "depends": "always"},
+                            {"key": "Успешно", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },
