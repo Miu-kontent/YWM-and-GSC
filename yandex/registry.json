@@ -220,9 +220,65 @@
         },
         {
             "id": "metrics",
-            "name": "Метрика",
-            "description": "Яндекс.Метрика: добавление, подключение, проверка счётчиков",
+            "name": "Счетчики",
+            "description": "Яндекс.Метрика: добавление сайтов в счётчик, обход, подключение, проверка",
             "subcategories": [
+                {
+                    "id": "mirrors_add",
+                    "name": "Добавление сайтов в счётчик метрики",
+                    "description": "Добавление поддоменов в зеркала счётчика Метрики через API",
+                    "script": "yandex_metrika_add_mirrors",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления в счётчик (по одному на строку)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты добавления зеркал",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего", "depends": "always"},
+                            {"key": "Добавлено ранее", "depends": "always"},
+                            {"key": "Добавлено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
+                },
+                {
+                    "id": "mirrors_bind",
+                    "name": "Привязка зеркал к Вебмастеру",
+                    "description": "Привязка зеркал счётчика Метрики к Вебмастеру через браузер (включая починку статуса 'ждёт подтверждения')",
+                    "script": "yandex_metrika_bind_mirrors",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для привязки (по одному на строку, пусто = все непривязанные)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты привязки зеркал",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "300px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего для подключения", "depends": "always"},
+                            {"key": "Привязано ранее", "depends": "always"},
+                            {"key": "Привязано", "depends": "always"},
+                            {"key": "Ожидают подтверждения", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
+                },
                 {
                     "id": "add",
                     "name": "Добавление",

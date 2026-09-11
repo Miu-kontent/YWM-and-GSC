@@ -197,45 +197,34 @@ def main():
             print(f"⚠️  Ошибка API ({status}): {details.get('error_type', '')} — {details.get('message', '')}")
         else:
             counter = details.get("counter") or {}
-            print()
-            print("ℹ️  Полный ответ (JSON):")
-            print(json.dumps(details, ensure_ascii=False, indent=2))
-
-            print()
-            print("ℹ️  Ключевые настройки:")
-            print(f"ℹ️  id: {counter.get('id')}")
-            print(f"ℹ️  name: {counter.get('name')}")
-            site2 = counter.get("site2") or {}
-            print(f"ℹ️  site: {site2.get('site', counter.get('site', '-'))}")
-            print(f"ℹ️  time_zone_name: {counter.get('time_zone_name', '-')}")
-            print(f"ℹ️  status: {counter.get('status', '-')}")
-            print(f"ℹ️  permission: {counter.get('permission', '-')}")
-            activity = counter.get("activity_status", "-")
-            print(f"ℹ️  activity_status: {activity}" + (" (⭐ высокая)" if activity == "high" else ""))
 
             mirrors = counter.get("mirrors2") or []
-            if mirrors:
-                print(f"ℹ️  mirrors2 ({len(mirrors)}): {', '.join(str(m) for m in mirrors)}")
+            mirror_rows = []
+            for m in mirrors:
+                if isinstance(m, dict):
+                    mirror_rows.append([
+                        m.get("site", ""),
+                        m.get("domain", ""),
+                        m.get("status", "")
+                    ])
+                else:
+                    mirror_rows.append([str(m), " - ", "?"])
+
+            print()
+            if mirror_rows:
+                print(f"ℹ️  Зеркала (mirrors2, всего {len(mirror_rows)}):")
+                print_table(["site", "domain", "status"], mirror_rows)
             else:
-                print("ℹ️  mirrors2: нет")
+                print("ℹ️  Зеркала (mirrors2): нет")
 
-            ecommerce = counter.get("ecommerce")
-            if ecommerce is not None:
-                print(f"ℹ️  ecommerce: {json.dumps(ecommerce, ensure_ascii=False)}")
-
-            webvisor = counter.get("webvisor")
-            if webvisor is not None:
-                print(f"ℹ️  webvisor: {json.dumps(webvisor, ensure_ascii=False)}")
-
-            params = counter.get("params") or []
-            if params:
-                print()
-                print("ℹ️  ─── КОМПАКТНАЯ ТАБЛИЦА: ПАРАМЕТРЫ СЧЁТЧИКА ───")
-                param_rows = [[p.get("name", ""), p.get("value", "")] for p in params]
-                print_table(["name", "value"], param_rows)
+            statuses = sorted({r[2] for r in mirror_rows if r[2]})
+            print()
+            if statuses:
+                print("ℹ️  ─── КРАТКАЯ СВОДКА: СТАТУСЫ ЗЕРКАЛ В СЧЁТЧИКЕ (уникальные) ───")
+                for s in statuses:
+                    print(f"ℹ️  • {s}")
             else:
-                print()
-                print("ℹ️  Параметры счётчика: отсутствуют")
+                print("ℹ️  Статусы зеркал: отсутствуют")
 
     print()
     print("ℹ️ === ТЕСТ ЗАВЕРШЁН ===")
