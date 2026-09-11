@@ -245,11 +245,32 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление sitemap из Яндекс.Вебмастера",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": []
+                    "description": "Удаление файлов Sitemap (API)",
+                    "script": "yandex_delete_sitemap",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты (пусто = все)"},
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа (напр. /sitemap.xml)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты удаления сайтмапов",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Сайтмап", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Путь сайтмапа", "depends": "always"},
+                            {"key": "Удалено", "depends": "always"},
+                            {"key": "Не найдено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },
