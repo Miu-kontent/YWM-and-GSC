@@ -159,7 +159,7 @@ def main():
         if label is None:
             label = f"Статус: {e['status']}"
         if e['status'] == 'ok':
-            label = f"⭐ {label}"
+            label = f"✅ {label}"
         elif e['status'] == 'need_webmaster_confirm':
             label = f"⚠️ {label}"
         print(f"__TABLE_ROW__:{json.dumps({'cells': [e['site'], label]}, ensure_ascii=False)}")

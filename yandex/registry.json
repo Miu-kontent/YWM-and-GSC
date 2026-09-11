@@ -3,7 +3,7 @@
         {
             "id": "export",
             "name": "Выгрузка",
-            "description": "Выгрузка данных из Яндекс.Вебмастера",
+            "description": "Выгрузка данных из сервисов",
             "subcategories": [
                 {
                     "id": "yandex_export",
@@ -38,23 +38,23 @@
                             {"key": "Всего сайтов", "depends": "always"},
                             {"key": "Не подтверждено", "depends": "always"},
                             {"key": "С зеркалами", "depends": "always"},
-                            {"key": "Не OK (host_data_status)", "depends": "status"},
+                            {"key": "Не индексируются", "depends": "status"},
                             {"key": "С рекомендациями", "depends": "problems"},
                             {"key": "С ошибками", "depends": "problems"},
                             {"key": "Без правильного сайтмапа", "depends": "sitemaps"},
                             {"key": "С неправильными сайтмапами", "depends": "sitemaps"},
-                            {"key": "Сайтмапы не в OK", "depends": "sitemaps"}
+                            {"key": "Сайтмапы с плохим статусом", "depends": "sitemaps"}
                         ]
                     }
                 },
                 {
                     "id": "metrika_export",
                     "name": "Выгрузка счётчиков Метрики",
-                    "description": "Выгрузка зеркал счётчика Метрики: сайты и статусы привязки",
+                    "description": "Выгрузка сайтов и статусы привязки",
                     "script": "yandex_metrika_export",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для фильтрации (по одному на строку, пусто = все)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для фильтрации"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -81,16 +81,16 @@
         {
             "id": "sites",
             "name": "Сайты",
-            "description": "Управление сайтами: добавление, подтверждение, удаление",
+            "description": "Управление сайтами в Вебмастере",
             "subcategories": [
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Добавление нового сайта в Яндекс.Вебмастер через API",
+                    "description": "Добавление нового сайта в Вебмастер",
                     "script": "yandex_add_sites",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -112,12 +112,12 @@
                 },
                 {
                     "id": "verify",
-                    "name": "Подтверждение",
-                    "description": "Подтверждение права собственности на сайт через API (META_TAG → HTML_FILE → DNS)",
+                    "name": "Права",
+                    "description": "Подтверждение права собственности на сайт",
                     "script": "yandex_verify",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -131,7 +131,7 @@
                         ],
                         "summaryRows": [
                             {"key": "Всего", "depends": "always"},
-                            {"key": "Уже подтверждены", "depends": "always"},
+                            {"key": "Подтверждены ранее", "depends": "always"},
                             {"key": "Подтверждено", "depends": "always"},
                             {"key": "  через META_TAG", "depends": "always"},
                             {"key": "  через HTML_FILE", "depends": "always"},
@@ -143,11 +143,11 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление сайтов из Яндекс.Вебмастера через API",
+                    "description": "Удаление сайтов",
                     "script": "yandex_sites_to_delete",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -197,16 +197,16 @@
         {
             "id": "sitemaps",
             "name": "Сайтмапы",
-            "description": "Управление sitemap: добавление, переотправка, удаление",
+            "description": "Управление sitemap",
             "subcategories": [
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Добавление sitemap в Яндекс.Вебмастер через API",
+                    "description": "Добавление sitemap",
                     "script": "yandex_add_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления сайтмапа (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления сайтмапа"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -250,23 +250,23 @@
         {
             "id": "metrics",
             "name": "Счетчики",
-            "description": "Яндекс.Метрика: добавление сайтов в счётчик, обход, подключение, проверка",
+            "description": "Работа со счетчиками Метрики",
             "subcategories": [
                 {
                     "id": "mirrors_add",
-                    "name": "Добавление сайтов в счётчик метрики",
-                    "description": "Добавление поддоменов в зеркала счётчика Метрики через API",
+                    "name": "Добавление в счётчик",
+                    "description": "Добавление поддоменов в счётчик",
                     "script": "yandex_metrika_add_mirrors",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления в счётчик (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления в счётчик"}
                     ],
                     "layout": {
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,
                         "splitSummary": true,
-                        "summaryLabel": "Результаты добавления зеркал",
+                        "summaryLabel": "Результаты добавления сайтов",
                         "columns": [
                             {"depends": "always", "label": "Сайт", "width": "300px"},
                             {"depends": "always", "label": "Статус", "width": "250px"}
@@ -281,20 +281,20 @@
                 },
                 {
                     "id": "mirrors_bind",
-                    "name": "Привязка зеркал к Вебмастеру",
-                    "description": "Привязка зеркал счётчика Метрики к Вебмастеру через браузер (включая починку статуса 'ждёт подтверждения')",
+                    "name": "Привязка сайтов",
+                    "description": "Привязка сайтов счётчика к Вебмастеру",
                     "script": "yandex_metrika_bind_mirrors",
                     "type": "browser",
                     "port": 9229,
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для привязки (по одному на строку, пусто = все непривязанные)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для привязки"}
                     ],
                     "layout": {
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,
                         "splitSummary": true,
-                        "summaryLabel": "Результаты привязки зеркал",
+                        "summaryLabel": "Результаты привязки сайтов",
                         "columns": [
                             {"depends": "always", "label": "Сайт", "width": "300px"},
                             {"depends": "always", "label": "Статус", "width": "300px"}
@@ -309,31 +309,63 @@
                     }
                 },
                 {
-                    "id": "add",
-                    "name": "Добавление",
-                    "description": "Включение обхода по счётчикам для поддоменов",
-                    "script": null,
+                    "id": "add_metrics",
+                    "name": "Включение обхода",
+                    "description": "Включение обхода по счётчикам",
+                    "script": "yandex_metrika_add_metrics",
                     "type": "browser",
                     "port": 9229,
-                    "fields": ["links", "yandexSettings"]
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты включения обхода",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего сайтов", "depends": "always"},
+                            {"key": "Включено ранее", "depends": "always"},
+                            {"key": "Включено", "depends": "always"},
+                            {"key": "Ошибки", "depends": "always"}
+                        ]
+                    }
                 },
                 {
-                    "id": "bind",
-                    "name": "Подключение",
-                    "description": "Привязка поддоменов к счётчику Метрики",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["metricCounterId"]
-                },
-                {
-                    "id": "counter",
-                    "name": "Проверка счётчика",
-                    "description": "Проверка обхода счётчиков Метрики",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["links", "metricCounterId"]
+                    "id": "mirrors_delete",
+                    "name": "Удаление сайтов из счетчика",
+                    "description": "Удаление лишних/ненужных сайтов из счётчика",
+                    "script": "yandex_metrika_delete_mirrors",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для обработки"},
+                        {"name": "mode", "type": "select", "label": "Режим удаления", "options": [
+                            {"value": "keep", "label": "Оставить только список, остальные удалить"},
+                            {"value": "delete", "label": "Удалить только указанные в списке"}
+                        ]}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты удаления сайтов",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Всего сайтов", "depends": "always"},
+                            {"key": "Оставлено", "depends": "always"},
+                            {"key": "Удалено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },
