@@ -149,7 +149,7 @@
                     "id": "add",
                     "name": "Добавление",
                     "description": "Массовое добавление регионов поддоменам",
-                    "script": "addRegions",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links", "city", "contactPath"]
@@ -158,7 +158,7 @@
                     "id": "check",
                     "name": "Проверка",
                     "description": "Проверка текущего региона поддоменов",
-                    "script": "Regi",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links", "city"]
@@ -202,7 +202,7 @@
                     "id": "resend",
                     "name": "Переотправка",
                     "description": "Перезапрос sitemap для переобхода",
-                    "script": "recrawl",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links", "yandexSettings"]
@@ -227,7 +227,7 @@
                     "id": "add",
                     "name": "Добавление",
                     "description": "Включение обхода по счётчикам для поддоменов",
-                    "script": "addMetrics",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links", "yandexSettings"]
@@ -236,7 +236,7 @@
                     "id": "bind",
                     "name": "Подключение",
                     "description": "Привязка поддоменов к счётчику Метрики",
-                    "script": "metrika_bind",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["metricCounterId"]
@@ -245,7 +245,7 @@
                     "id": "counter",
                     "name": "Проверка счётчика",
                     "description": "Проверка обхода счётчиков Метрики",
-                    "script": "metriks",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links", "metricCounterId"]
@@ -261,7 +261,7 @@
                     "id": "errors",
                     "name": "Ошибки",
                     "description": "Проверка ошибок индексирования",
-                    "script": "errors",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links"]
@@ -270,7 +270,7 @@
                     "id": "recommendations",
                     "name": "Рекомендации",
                     "description": "Проверка рекомендаций Яндекс.Вебмастера",
-                    "script": "recomen",
+                    "script": null,
                     "type": "browser",
                     "port": 9229,
                     "fields": ["links"]
@@ -308,25 +308,15 @@
                 ]
             },
             {
-                "id": "sites_delete_old",
-                "name": "Удаление сайтов (старый UI)",
-                "description": "Удаление сайтов через UI (Puppeteer) — устарел",
-                "script": "yandex_sites_to_delete_old",
-                "type": "browser",
-                "port": 9229,
-                "fields": ["yandex_sites_to_delete"]
-            },
-            {
-                "id": "verification_old",
-                "name": "Подтверждение (старый UI)",
-                "description": "Подтверждение через UI (Puppeteer) — устарел",
-                "script": "yandex_verify_old",
-                "type": "browser",
-                "port": 9229,
-                "fields": ["links", "yandexSettings"]
+                "id": "metrika_test",
+                "name": "Метрика (тест)",
+                "description": "Вывод ответа API Метрики: список счётчиков",
+                "script": "yandex_metrika_test",
+                "type": "api",
+                "fields": []
             }
             ]
         }
     ],
-    "excludedScripts": ["loadConfig", "userid", "yandex_auth", "yandex_get_token", "yandex_get_userid", "yandex_sites_to_delete", "yandex_sites_to_delete_old", "yandex_verify_old"]
+    "excludedScripts": ["loadConfig", "yandex_auth", "yandex_get_token", "yandex_get_userid", "yandex_metrika_getcounter", "yandex_sites_to_delete"]
 }

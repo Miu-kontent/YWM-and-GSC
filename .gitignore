@@ -13,7 +13,11 @@ debug_profiles/*
 test.py
 Launcher.cs
 API вебмастера.txt
+API Метрики.txt
 # Playwright
 playwright-report/
 test-results/
 *.trace.zip
+# Старые JS-скрипты (история, миграция на Python)
+yandex/scripts/*.js
+google/scripts/*.js
