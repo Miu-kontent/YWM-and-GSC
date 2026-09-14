@@ -192,9 +192,12 @@ select.form-control {
 }
 
 /* --- Summary block --- */
-.split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.split-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: stretch; }
 .split-inputs { display: flex; flex-direction: column; min-width: 0; }
 .split-inputs textarea.form-control { flex: 1 1 auto; }
+.split-inputs--grid { display: grid; gap: 12px; align-items: stretch; min-width: 0; }
+.split-inputs--grid .form-group { margin-bottom: 0; display: flex; flex-direction: column; min-width: 0; }
+.split-inputs--grid .form-group textarea.form-control { flex: 1 1 auto; }
 .split-summary { min-width: 0; }
 .split-summary .summary-block { margin-top: 8px; min-height: 44px; }
 .summary-block {

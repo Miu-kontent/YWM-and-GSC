@@ -178,23 +178,18 @@
                         {"name": "links", "type": "textarea", "label": "Сайты"},
                         {"name": "city", "type": "textarea", "label": "Города"}
                     ],
-                    "layout": {
+"layout": {
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,
                         "splitSummary": true,
+                        "inputColumns": 2,
                         "summaryLabel": "Результаты по регионам",
-                        "columns": [
-                            {"depends": "always", "label": "Сайт", "width": "300px"},
-                            {"depends": "always", "label": "Город", "width": "250px"},
-                            {"depends": "always", "label": "Путь к контактам", "width": "260px"},
-                            {"depends": "always", "label": "Статус", "width": "250px"}
-                        ],
-                        "summaryRows": [
-                            {"key": "Сайтов", "depends": "always"},
-                            {"key": "Путь контактов", "depends": "always"},
-                            {"key": "Успешно", "depends": "always"},
-                            {"key": "Ошибок", "depends": "always"}
+"columns": [
+                            {"depends": "always", "label": "Сайт", "width": "200px"},
+                            {"depends": "always", "label": "Город", "width": "150px"},
+                            {"depends": "always", "label": "Путь к контактам", "width": "250px"},
+                            {"depends": "always", "label": "Статус", "width": "150px"}
                         ]
                     }
                 }

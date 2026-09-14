@@ -115,6 +115,89 @@ const serviceFields = {
     google: ['client_id', 'client_secret', 'access_token', 'auth_code', 'sitemap_path']
 };
 
+// Человекочитаемые названия ключей для toast-уведомлений
+const KEY_LABELS = {
+    oauth_token: 'OAuth Token',
+    user_id: 'User ID',
+    metric_id: 'Счётчик метрики',
+    contact_path: 'Путь контактов',
+    sitemap_path: 'Путь сайтмапа',
+    client_id: 'Client ID',
+    client_secret: 'Client Secret',
+    access_token: 'Access Token',
+    auth_code: 'Auth Code',
+    links: 'Сайты',
+    city: 'Города'
+};
+
+// Необходимые данные для запуска каждого скрипта (ключи конфига и поля).
+// Массив — всегда обязательные данные.
+// Объект {always, ifLinks} — ifLinks проверяются только если заполнены сайты (режим добавления).
+const SCRIPT_REQUIREMENTS = {
+    yandex: {
+        yandex_export:              ['oauth_token', 'user_id'],
+        yandex_metrika_export:      ['oauth_token', 'metric_id'],
+        yandex_add_sites:           ['oauth_token', 'user_id', 'links'],
+        yandex_verify:              ['oauth_token', 'user_id'],
+        yandex_sites_to_delete:     ['oauth_token', 'user_id', 'links'],
+        yandex_region_add:          { always: ['oauth_token', 'user_id'], ifLinks: ['contact_path', 'city'] },
+        yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path', 'links'],
+        yandex_delete_sitemap:      ['oauth_token', 'user_id', 'sitemap_path'],
+        yandex_metrika_add_mirrors: ['oauth_token', 'metric_id', 'links'],
+        yandex_metrika_bind_mirrors:['oauth_token', 'metric_id'],
+        yandex_metrika_add_metrics: ['oauth_token', 'user_id'],
+        yandex_metrika_delete_mirrors: ['oauth_token', 'metric_id', 'links'],
+        yandex_export_test:         ['oauth_token', 'user_id'],
+        yandex_metrika_test:        ['oauth_token']
+    },
+    google: {}
+};
+
+function getSubcategoryForScript(service, script) {
+    const registry = window._registries[service];
+    if (!registry) return null;
+    for (const cat of registry.categories) {
+        for (const sub of (cat.subcategories || [])) {
+            if (sub.script === script) return sub;
+        }
+    }
+    return null;
+}
+
+function getRequiredLabel(key, service, script) {
+    if (KEY_LABELS[key]) return KEY_LABELS[key];
+    const sub = getSubcategoryForScript(service, script);
+    if (sub) {
+        for (const f of (sub.fields || [])) {
+            const rf = resolveField(f);
+            if (rf.name === key && rf.label) return rf.label.split(' (по одному')[0];
+        }
+    }
+    return key;
+}
+
+function validateScriptInputs(service, script) {
+    const req = (SCRIPT_REQUIREMENTS[service] || {})[script];
+    if (!req) return [];
+    const spec = Array.isArray(req) ? { always: req, ifLinks: [] } : req;
+    const configKeys = serviceFields[service] || [];
+    const scriptId = `${service}-${script}`;
+    const missing = [];
+
+    const check = (key) => {
+        const ok = configKeys.includes(key)
+            ? !!getKeyValue(service, key)
+            : !!getInputValue(`${scriptId}-${key}`);
+        if (!ok) missing.push(getRequiredLabel(key, service, script));
+    };
+
+    (spec.always || []).forEach(check);
+    if (getInputValue(`${scriptId}-links`).trim()) {
+        (spec.ifLinks || []).forEach(check);
+    }
+    return missing;
+}
+
 function setKeyValue(service, field, value) {
     document.querySelectorAll(`[data-service="${service}"][data-field="${field}"]`)
         .forEach(el => { el.value = value ?? ''; });
@@ -606,6 +689,11 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
 
     const inputsHtml = (fields || []).map(field => renderFieldInput(field, scriptId, savedData)).join('');
 
+    const inputsGridCls = layout.inputColumns && layout.inputColumns > 1 ? ' split-inputs--grid' : '';
+    const inputsGridStyle = layout.inputColumns && layout.inputColumns > 1
+        ? ` style="grid-template-columns: repeat(${layout.inputColumns}, minmax(0, 1fr));"`
+        : '';
+
     const statusStyle = layout.statusRolling
         ? 'font-size: 13px; color: var(--text-muted); flex: 1; margin-left: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'
         : 'font-size: 13px; color: var(--text-muted); margin-left: auto;';
@@ -636,7 +724,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
 
     const topHtml = layout.splitSummary
         ? `<div class="split-row">
-            <div class="split-inputs">${inputsHtml}</div>
+            <div class="split-inputs${inputsGridCls}"${inputsGridStyle}>${inputsHtml}</div>
             ${summaryBlock}
            </div>`
         : inputsHtml;
@@ -768,16 +856,30 @@ function getScriptInputs(scriptId) {
 
 async function runScript(service, script) {
     const scriptId = `${service}-${script}`;
+
+    if (runningScripts[scriptId]) {
+        showToast('Скрипт уже запущен', 'error');
+        return;
+    }
+
+    const missing = validateScriptInputs(service, script);
+    if (missing.length) {
+        showToast(`Не хватает данных: ${missing.join(', ')}`, 'error');
+        return;
+    }
+
     const layout = getScriptLayout(service, script) || {};
     const statusEl = document.getElementById(`${scriptId}-status`);
     const logsEl = document.getElementById(`${scriptId}-logs`);
     const reportEl = document.getElementById(`${scriptId}-report`);
     const summaryEl = document.getElementById(`${scriptId}-summary`);
-    const btn = event.target;
+    const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
 
     runningScripts[scriptId] = true;
-    btn.disabled = true;
-    btn.textContent = '⏳ Запуск...';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Запуск...';
+    }
     statusEl.textContent = 'Запуск...';
     statusEl.style.color = 'var(--accent)';
     if (logsEl) logsEl.innerHTML = '';
@@ -799,13 +901,18 @@ async function runScript(service, script) {
     try {
         await window.pywebview.api.save_script_data(service, script, getScriptInputs(scriptId));
         const res = await window.pywebview.api.run_script(service, script);
-        if (!res.success) throw new Error(res.message);
+        if (!res.success) {
+            showToast(res.message, 'error');
+            throw new Error(res.message);
+        }
         statusEl.textContent = 'Выполняется...';
     } catch (err) {
         statusEl.textContent = `Ошибка: ${err.message}`;
         statusEl.style.color = 'var(--status-error-text)';
-        btn.disabled = false;
-        btn.textContent = '▶ Запустить';
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '▶ Запустить';
+        }
         runningScripts[scriptId] = false;
     }
 }
@@ -815,6 +922,13 @@ async function runScript(service, script) {
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
 
+    if (line.startsWith('__TOAST__:')) {
+        try {
+            const data = JSON.parse(line.slice(line.indexOf(':') + 1));
+            showToast(data.message, data.type || 'error');
+        } catch (e) { /* ignore bad JSON */ }
+        return;
+    }
     if (line.startsWith('__SUMMARY__:')) {
         try {
             const data = JSON.parse(line.slice(line.indexOf(':') + 1));

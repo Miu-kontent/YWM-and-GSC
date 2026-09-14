@@ -375,6 +375,23 @@ def export_recrawl_quota(headers, user_id, host_id):
     print_kv(info)
 
 
+def export_sitemaps_recrawl_limit(headers, user_id, host_id):
+    print()
+    print(f"ℹ️ === GET /v4.1/user/{user_id}/hosts/{host_id}/sitemaps/recrawl ===")
+    print()
+
+    url = f"https://api.webmaster.yandex.net/v4.1/user/{user_id}/hosts/{host_id}/sitemaps/recrawl"
+    data, err = api_get(url, headers)
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    info = data.get("host_sitemaps_recrawl_limit_info", data)
+    print_kv(info, keys=["monthly_limit_requests", "requests_count", "nearest_allowed_day"])
+    if "host_sitemaps_recrawl_limit_info" in data:
+        print(f"ℹ️  raw: {json.dumps(data, ensure_ascii=False)}")
+
+
 def export_sqi_history(headers, user_id, host_id, date_from, date_to):
     print()
     print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/sqi-history ===")
@@ -581,6 +598,7 @@ def main():
         export_external_links(headers, user_id, hid)
         export_limits(headers, user_id, hid)
         export_recrawl_quota(headers, user_id, hid)
+        export_sitemaps_recrawl_limit(headers, user_id, hid)
 
         if date_from or date_to:
             export_sqi_history(headers, user_id, hid, date_from, date_to)

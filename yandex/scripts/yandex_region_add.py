@@ -15,8 +15,13 @@ STATE_SCAN_JS = """
 () => {
     const item = document.querySelector('ul.RegionsList.RegionsList_multiline li.RegionsList-Item');
     const current = item ? (item.textContent || '').trim() : '';
+    const addBtn = Array.from(document.querySelectorAll('button')).find(b =>
+        (b.textContent || '').includes('Добавить регион')
+    );
     return {
         currentRegion: current,
+        hasRegionSet: !!current && current.indexOf('не задан') === -1,
+        addRegionDisabled: !!(addBtn && (addBtn.disabled || addBtn.classList.contains('g-button_disabled'))),
         hasChangeRegions: !!document.querySelector('.ChangeRegions'),
         hasAddContainer: !!document.querySelector('.AddRegionContainer'),
         hasSelected: !!document.querySelector('.AddRegionContainer_selected')
@@ -183,6 +188,10 @@ def wait_until(page, js, timeout=8, expected=None):
     return False, last
 
 
+def toast(msg, toast_type='error'):
+    print(f'__TOAST__:{json.dumps({"type": toast_type, "message": str(msg)}, ensure_ascii=False)}')
+
+
 def match_suggest_index(items, city):
     target = city.strip().lower()
     if not target:
@@ -209,11 +218,13 @@ def main():
     if not token:
         print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
         print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
+        toast('Для запуска скрипта не хватает данных: oauth_token')
         return
 
     if not user_id:
         print('⚠️  Для запуска скрипта не хватает данных: user_id')
         print('ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить')
+        toast('Для запуска скрипта не хватает данных: user_id')
         return
 
     script_data = load_script_data()
@@ -239,10 +250,12 @@ def main():
         if not contact_path:
             print('⚠️  Для запуска скрипта не хватает данных: contact_path')
             print('ℹ️  Заполните поле «Путь контактов» в конфиге Яндекс-раздела')
+            toast('Для запуска скрипта не хватает данных: contact_path')
             return
         if len(sites) != len(cities):
             print(f'❌ Размеры списков не совпадают: сайтов {len(sites)}, городов {len(cities)}')
             print('ℹ️  Каждый сайт должен соответствовать городу в той же строке')
+            toast(f'Размеры списков не совпадают: сайтов {len(sites)}, городов {len(cities)}')
             return
         print(f'ℹ️  Режим: добавление региона')
         print(f'ℹ️  Сайтов: {len(sites)}')
@@ -259,17 +272,22 @@ def main():
 
     if not sites:
         print('❌ Нет сайтов для обработки!')
+        toast('Нет сайтов для обработки!')
         return
 
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         print('❌ Не установлен playwright.')
+        toast('Не установлен playwright')
         return
 
     total = len(sites)
-    processed = 0
     failed_count = 0
+    added_count = 0
+    pending_count = 0
+    already_count = 0
+    checked_count = 0
 
     try:
         with sync_playwright() as p:
@@ -278,10 +296,12 @@ def main():
             except Exception:
                 print('⚠️  Браузер не запущен или отключён порт 9229.')
                 print('ℹ️  Запустите браузер кнопкой "🌐 Браузер (порт 9229)" на вкладке Яндекс и повторите.')
+                toast('Браузер не запущен (порт 9229)')
                 return
 
             if not browser.contexts:
                 print('❌ Не найдено ни одного контекста браузера')
+                toast('Не найдено ни одного контекста браузера')
                 browser.close()
                 return
 
@@ -313,15 +333,29 @@ def main():
 
                     if mode == 'check':
                         current = state.get('currentRegion', '')
-                        if not current or 'не задан' in current:
+                        if state.get('addRegionDisabled'):
+                            status = '⏳ На проверке'
+                            pending_count += 1
+                        elif not current or 'не задан' in current:
                             status = 'Нет региона'
                         else:
                             status = f'✅ Регион: {current}'
-                        processed += 1
+                            already_count += 1
+                        checked_count += 1
                         print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, current or "-", "-", status]}, ensure_ascii=False)}')
                         continue
 
                     # ---- режим добавления ----
+                    if state.get('hasRegionSet'):
+                        already_count += 1
+                        print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, state.get("currentRegion") or city, contact_url, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
+                        continue
+
+                    if state.get('addRegionDisabled'):
+                        pending_count += 1
+                        print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, city, contact_url, "⏳ На проверке"]}, ensure_ascii=False)}')
+                        continue
+
                     if not state.get('hasChangeRegions'):
                         clicked = page.evaluate(CLICK_BY_TEXT_JS, 'Добавить регион')
                         if not clicked:
@@ -341,7 +375,7 @@ def main():
                         page.evaluate(CLEAR_SELECTED_JS)
                         time.sleep(0.5)
 
-                    ok_fill = page.evaluate(FILL_INPUT_JS, ['input#suggest-1', city])
+                    ok_fill = page.evaluate(FILL_INPUT_JS, ['input#suggest-1[placeholder*="Регион"]', city])
                     if not ok_fill:
                         raise RuntimeError('поле ввода региона не найдено')
 
@@ -372,8 +406,8 @@ def main():
                     if not ok_closed:
                         raise RuntimeError('сохранение региона не завершилось')
 
-                    processed += 1
-                    print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, city, contact_url, "⏳ Отправлено на проверку"]}, ensure_ascii=False)}')
+                    added_count += 1
+                    print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, city, contact_url, "✅ Сохранено"]}, ensure_ascii=False)}')
 
                 except Exception as e:
                     failed_count += 1
@@ -391,12 +425,24 @@ def main():
 
     finally:
         print()
-        summary = {
-            "Сайтов": total,
-            "Путь контактов": f'/{contact_path}/' if contact_path else '-',
-            "Успешно": processed,
-            "Ошибок": failed_count
-        }
+        if mode == 'check':
+            summary = {
+                "Сайтов": total,
+                "Путь контактов": "-",
+                "С регионами": already_count,
+                "На проверке": pending_count,
+                "Без региона": checked_count - already_count - pending_count,
+                "Ошибок": failed_count
+            }
+        else:
+            summary = {
+                "Сайтов": total,
+                "Путь контактов": f'/{contact_path}/' if contact_path else '-',
+                "Добавлено": added_count,
+                "На проверке": pending_count,
+                "Добавлено ранее": already_count,
+                "Ошибок": failed_count
+            }
         print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
         print('__TABLE_DONE__:{}')
 
