@@ -144,6 +144,7 @@ const SCRIPT_REQUIREMENTS = {
         yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path', 'links'],
         yandex_delete_sitemap:      ['oauth_token', 'user_id', 'sitemap_path'],
         yandex_sitemap_recrawl:     ['oauth_token', 'user_id', 'sitemap_path'],
+        yandex_checklist:           ['oauth_token', 'user_id'],
         yandex_metrika_add_mirrors: ['oauth_token', 'metric_id', 'links'],
         yandex_metrika_bind_mirrors:['oauth_token', 'metric_id'],
         yandex_metrika_add_metrics: ['oauth_token', 'user_id'],

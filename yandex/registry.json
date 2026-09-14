@@ -193,6 +193,39 @@
                             {"depends": "always", "label": "Статус", "width": "150px"}
                         ]
                     }
+                },
+                {
+                    "id": "checklist",
+                    "name": "Рекомендации и ошибки",
+                    "description": "Проверка ошибок и рекомендаций (API диагностика + Playwright). Пустые сайты = все хосты",
+                    "script": "yandex_checklist",
+                    "type": "browser",
+                    "port": 9229,
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты (пусто = все)"},
+                        {"name": "recommendations", "type": "checkbox", "label": "Рекомендации"},
+                        {"name": "errors", "type": "checkbox", "label": "Ошибки"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты проверки",
+                        "summaryPlaceholder": [
+                            "Количество сайтов", "Не подтверждено",
+                            "Ошибок с проверкой", "Ошибок нажато", "Ошибок без кнопки", "Ошибок на проверке",
+                            "Рекомендаций с проверкой", "Рекомендаций нажато", "Рекомендаций без кнопки", "Рекомендаций на проверке",
+                            "Новых", "Ошибок скрипта"
+                        ],
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "200px"},
+                            {"depends": "field:recommendations", "label": "Рекомендации", "width": "200px"},
+                            {"depends": "field:recommendations", "label": "Статус рек.", "width": "100px"},
+                            {"depends": "field:errors", "label": "Ошибки", "width": "200px"},
+                            {"depends": "field:errors", "label": "Статус ош.", "width": "100px"}
+                        ]
+                    }
                 }
             ]
         },
@@ -416,36 +449,11 @@
             ]
         },
         {
-            "id": "checks",
-            "name": "Проверки",
-            "description": "Проверка ошибок и рекомендаций",
-            "subcategories": [
-                {
-                    "id": "errors",
-                    "name": "Ошибки",
-                    "description": "Проверка ошибок индексирования",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["links"]
-                },
-                {
-                    "id": "recommendations",
-                    "name": "Рекомендации",
-                    "description": "Проверка рекомендаций Яндекс.Вебмастера",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9229,
-                    "fields": ["links"]
-                }
-            ]
-        },
-        {
             "id": "tests",
             "name": "Тесты",
             "description": "Тестовые скрипты",
             "subcategories": [
-{
+            {
                 "id": "yandex_export_test",
                 "name": "Экспорт данных (тест)",
                 "description": "Получение всей информации через API Яндекс.Вебмастера",

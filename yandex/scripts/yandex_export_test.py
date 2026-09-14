@@ -392,6 +392,50 @@ def export_sitemaps_recrawl_limit(headers, user_id, host_id):
         print(f"ℹ️  raw: {json.dumps(data, ensure_ascii=False)}")
 
 
+def export_diagnostics(headers, user_id, host_id):
+    print()
+    print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/diagnostics ===")
+    print()
+
+    data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{host_id}/diagnostics", headers)
+    if err:
+        print(f"⚠️  Ошибка: {err}")
+        return
+
+    problems = data.get("problems", {})
+    print(f"ℹ️  Всего проблем: {len(problems)}")
+    print()
+
+    rows = []
+    present = []
+    by_severity = {}
+    for code, info in problems.items():
+        rows.append([
+            code,
+            info.get("severity", ""),
+            info.get("state", ""),
+            info.get("last_state_update", ""),
+            json.dumps(info, ensure_ascii=False)[:200]
+        ])
+        if info.get("state") == "PRESENT":
+            present.append(code)
+        sev = info.get("severity", "?")
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+
+    print_table(
+        ["problem", "severity", "state", "last_state_update", "info"],
+        rows,
+        total_count=len(problems)
+    )
+
+    if present:
+        print()
+        print(f"ℹ️  Состояние PRESENT (проблема присутствует): {len(present)}")
+        print(f"ℹ️  {', '.join(sorted(present))}")
+    if by_severity:
+        print(f"ℹ️  По категориям: {', '.join(f'{sev}={n}' for sev, n in sorted(by_severity.items()))}")
+
+
 def export_sqi_history(headers, user_id, host_id, date_from, date_to):
     print()
     print(f"ℹ️ === GET /user/{user_id}/hosts/{host_id}/sqi-history ===")
@@ -599,6 +643,7 @@ def main():
         export_limits(headers, user_id, hid)
         export_recrawl_quota(headers, user_id, hid)
         export_sitemaps_recrawl_limit(headers, user_id, hid)
+        export_diagnostics(headers, user_id, hid)
 
         if date_from or date_to:
             export_sqi_history(headers, user_id, hid, date_from, date_to)
