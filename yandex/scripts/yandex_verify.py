@@ -211,7 +211,7 @@ def main():
 
         if host_id and verified:
             already_verified += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "✅ Уже подтверждён"]}, ensure_ascii=False)}')
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "⭐ Подтверждён ранее"]}, ensure_ascii=False)}')
             continue
 
         if not host_id:

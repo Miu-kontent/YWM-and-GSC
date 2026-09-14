@@ -186,7 +186,7 @@ def main():
             error_code = body.get('error_code', '') if isinstance(body, dict) else ''
             if error_code == 'SITEMAP_ALREADY_ADDED':
                 already_count += 1
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site, sitemap_url, "ℹ️ Уже добавлен"]}, ensure_ascii=False)}')
+                print(f'__TABLE_ROW__:{json.dumps({"cells": [site, sitemap_url, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
             else:
                 error_count += 1
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [site, sitemap_url, f"❌ {error_code}"]}, ensure_ascii=False)}')

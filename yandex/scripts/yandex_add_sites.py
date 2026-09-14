@@ -156,7 +156,7 @@ def main():
 
         if normalize_host(site) in existing_hosts:
             already_count += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "ℹ️ Уже существует"]}, ensure_ascii=False)}')
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
             time.sleep(0.3)
             continue
 
@@ -178,9 +178,8 @@ def main():
         elif status == 409:
             error_code = body.get('error_code', '') if isinstance(body, dict) else ''
             if error_code == 'HOST_ALREADY_ADDED':
-                print(f'   ℹ️  Уже существует')
                 already_count += 1
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "ℹ️ Уже существует"]}, ensure_ascii=False)}')
+                print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
             else:
                 print(f'   ❌ {error_code}')
                 error_count += 1

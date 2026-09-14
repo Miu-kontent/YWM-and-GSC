@@ -183,9 +183,9 @@ def main():
 
         host_id = get_host_id_from_url(all_hosts, site)
         if not host_id:
-            print(f'   ❌ Не найден в вебмастере')
+            print(f'   ℹ️ Не найден в вебмастере')
             not_found_count += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "❌ Не найден"]}, ensure_ascii=False)}')
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "ℹ️ Не найден"]}, ensure_ascii=False)}')
             continue
 
         delete_url = f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts/{host_id}'

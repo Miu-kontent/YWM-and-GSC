@@ -225,7 +225,7 @@ def main():
                 targets = [{'domain': s['domain'], 'status': s['status']} for s in states
                            if s['status'] in ('init', 'need-webmaster-confirm', 'deleted')]
                 if not targets:
-                    print('✅ Все зеркала счётчика уже привязаны (нет сайтов для подключения)')
+                    print('⭐ Все зеркала счётчика уже привязаны')
 
             print(f'ℹ️  Сайтов для подключения: {len(targets)}')
 
@@ -260,7 +260,7 @@ def main():
                         continue
                     if final == 'ok':
                         done += 1
-                        print('   ✔ Статус: привязан')
+                        print('   ✅ Статус: привязан')
                     else:
                         pending += 1
                         print('   ⚠️ Запрос отправлен, ждёт подтверждения')
@@ -275,7 +275,7 @@ def main():
                     if not ok:
                         failed[domain] = 'отмена привязки не прошла'
                         continue
-                    print('   ✔ Отменено, повторная привязка...')
+                    print('   ℹ️ Отменено, повторная привязка...')
                     ok_click = frame.evaluate(CLICK_JS, [domain, 'repeat'])
                     if not ok_click:
                         failed[domain] = 'не найдена кнопка повторной привязки'
@@ -286,7 +286,7 @@ def main():
                         continue
                     if final == 'ok':
                         done += 1
-                        print('   ✔ Статус: привязан')
+                        print('   ✅ Статус: привязан')
                     else:
                         pending += 1
                         print('   ⚠️ Запрос отправлен, ждёт подтверждения')
@@ -323,7 +323,6 @@ def main():
                     domain = t['domain']
                     label = f'❌ {failed[domain]}' if domain in failed else '—'
                     targets_for_table.append((domain, label))
-            # time.sleep(0.3)
 
             print()
             for domain, label in targets_for_table:
