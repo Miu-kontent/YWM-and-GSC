@@ -618,7 +618,6 @@ def main():
         print(f'⚠️  Ошибка получения хостов: {err}')
         toast(f'Ошибка получения хостов: {err}')
         return
-    print(f'ℹ️  Хостов в Вебмастере: {len(hosted)}')
 
     candidates = sites if sites else list(hosted.keys())
     if not candidates:
@@ -626,13 +625,6 @@ def main():
         return
 
     total = len(candidates)
-    enabled_sections = []
-    if rec_enabled:
-        enabled_sections.append('rec')
-    if err_enabled:
-        enabled_sections.append('err')
-    sections_info = '+'.join(enabled_sections)
-    print(f'ℹ️  Разделы: {sections_info}, сайтов: {total}')
 
     # Проверка браузера
     try:
