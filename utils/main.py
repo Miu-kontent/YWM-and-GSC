@@ -397,7 +397,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True)
+    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True, private_mode=False)
 
 
 if __name__ == "__main__":

@@ -143,6 +143,7 @@ const SCRIPT_REQUIREMENTS = {
         yandex_region_add:          { always: ['oauth_token', 'user_id'], ifLinks: ['contact_path', 'city'] },
         yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path', 'links'],
         yandex_delete_sitemap:      ['oauth_token', 'user_id', 'sitemap_path'],
+        yandex_sitemap_recrawl:     ['oauth_token', 'user_id', 'sitemap_path'],
         yandex_metrika_add_mirrors: ['oauth_token', 'metric_id', 'links'],
         yandex_metrika_bind_mirrors:['oauth_token', 'metric_id'],
         yandex_metrika_add_metrics: ['oauth_token', 'user_id'],
@@ -580,6 +581,18 @@ function renderFieldInput(field, scriptId, savedData) {
                 <label class="form-label">${f.label}</label>
                 <select class="form-control" id="${id}">${options}</select>
             </div>`;
+        case 'checkbox':
+            const checkedAttr = val ? ' checked' : '';
+            const dashIdx = scriptId.indexOf('-');
+            const srv = dashIdx === -1 ? '' : scriptId.slice(0, dashIdx);
+            const scr = dashIdx === -1 ? scriptId : scriptId.slice(dashIdx + 1);
+            return `<div class="form-group">
+                <label class="form-label">${f.label}</label>
+                <label class="checkbox-label">
+                    <input type="checkbox" style="width:16px;height:16px;accent-color:var(--accent)" id="${id}"${checkedAttr} onchange="onFieldChange('${srv}', '${scr}')">
+                    <span>Включено</span>
+                </label>
+            </div>`;
         default:
             let textVal = '';
             if (Array.isArray(val)) textVal = val.join('\n');
@@ -611,9 +624,16 @@ function getSavedSelection(service, scriptName, layout) {
     return [];
 }
 
-function getVisibleColumns(layout, selection) {
+function getVisibleColumns(layout, selection, scriptId) {
     if (layout.columns) {
-        return layout.columns.filter(c => c.depends === 'always' || selection.includes(c.depends));
+        return layout.columns.filter(c => {
+            if (c.depends === 'always') return true;
+            if (selection && selection.includes(c.depends)) return true;
+            if (c.depends && c.depends.startsWith('field:')) {
+                return isFieldTruthy(scriptId, c.depends.slice(6));
+            }
+            return false;
+        });
     }
     const headers = layout.tableHeaders || DEFAULT_TABLE_HEADERS;
     const centers = layout.centerColumns || [];
@@ -621,8 +641,21 @@ function getVisibleColumns(layout, selection) {
     return headers.map((label, i) => ({ label, center: centers.includes(i), width: widths[i] || null }));
 }
 
-function buildTheadHtml(layout, selection) {
-    return getVisibleColumns(layout, selection).map(c => {
+function isFieldTruthy(scriptId, name) {
+    const el = document.getElementById(`${scriptId}-${name}`);
+    if (el) {
+        if (el.type === 'checkbox') return el.checked;
+        return el.value.trim() !== '';
+    }
+    const parts = scriptId.split('-');
+    const service = parts[0];
+    const script = parts.slice(1).join('-');
+    const saved = window._scriptsData && window._scriptsData[service] && window._scriptsData[service][script];
+    return !!(saved && saved[name]);
+}
+
+function buildTheadHtml(layout, selection, scriptId) {
+    return getVisibleColumns(layout, selection, scriptId).map(c => {
         const style = c.width ? ` style="width:${c.width}"` : '';
         const cls = c.center ? ' class="center"' : '';
         return `<th${cls}${style}>${escHtml(c.label)}</th>`;
@@ -647,7 +680,18 @@ async function onExportGroupChange(service, script) {
 
     const selection = collectExportGroups(scriptId);
     const thead = document.querySelector(`#${scriptId}-report thead`);
-    if (thead) thead.innerHTML = `<tr>${buildTheadHtml(layout, selection)}</tr>`;
+    if (thead) thead.innerHTML = `<tr>${buildTheadHtml(layout, selection, scriptId)}</tr>`;
+    if (layout.splitSummary) renderSummary(scriptId, null, selection);
+}
+
+function onFieldChange(service, script) {
+    const scriptId = `${service}-${script}`;
+    const layout = getScriptLayout(service, script) || {};
+    if (!layout.columns) return;
+
+    const selection = collectExportGroups(scriptId);
+    const thead = document.querySelector(`#${scriptId}-report thead`);
+    if (thead) thead.innerHTML = `<tr>${buildTheadHtml(layout, selection, scriptId)}</tr>`;
     if (layout.splitSummary) renderSummary(scriptId, null, selection);
 }
 
@@ -687,7 +731,17 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
     const layout = getScriptLayout(service, scriptName) || {};
     const selection = getSavedSelection(service, scriptName, layout);
 
-    const inputsHtml = (fields || []).map(field => renderFieldInput(field, scriptId, savedData)).join('');
+    const inputsHtml = (fields || []).filter(f => resolveField(f).type !== 'checkbox')
+        .map(field => renderFieldInput(field, scriptId, savedData)).join('');
+
+    const fieldCheckboxesHtml = (fields || []).some(f => resolveField(f).type === 'checkbox')
+        ? `<div class="export-groups" id="${scriptId}-field-checkboxes">` + fields.filter(f => resolveField(f).type === 'checkbox').map(f => {
+            const checked = savedData[f.name] ? ' checked' : '';
+            return `<label class="export-group" title="${escHtml(f.label)}">
+                <input type="checkbox" id="${scriptId}-${f.name}" onchange="onFieldChange('${service}', '${scriptName}')"${checked}> ${escHtml(f.label)}
+            </label>`;
+        }).join('') + `</div>`
+        : '';
 
     const inputsGridCls = layout.inputColumns && layout.inputColumns > 1 ? ' split-inputs--grid' : '';
     const inputsGridStyle = layout.inputColumns && layout.inputColumns > 1
@@ -729,7 +783,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
            </div>`
         : inputsHtml;
 
-    const theadHtml = buildTheadHtml(layout, selection);
+    const theadHtml = buildTheadHtml(layout, selection, scriptId);
 
     return `
         <div class="card script-panel" id="${scriptId}-card">
@@ -744,6 +798,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
                 <div class="align-right" style="justify-content: flex-start; align-items: center;">
                     <button class="btn btn--primary" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
                     ${saveBtn}
+                    ${fieldCheckboxesHtml}
                     ${groupsHtml}
                     <span class="script-status" style="${statusStyle}" id="${scriptId}-status"></span>
                 </div>
@@ -801,6 +856,11 @@ async function saveScriptData(service, script) {
 
     fields.forEach(field => {
         const f = resolveField(field);
+        if (f.type === 'checkbox') {
+            const el = document.getElementById(`${scriptId}-${f.name}`);
+            data[f.name] = !!(el && el.checked);
+            return;
+        }
         const val = getInputValue(`${scriptId}-${f.name}`);
         if (val) {
             if (f.type === 'textarea') {
@@ -836,6 +896,11 @@ function getScriptInputs(scriptId) {
 
     fields.forEach(field => {
         const f = resolveField(field);
+        if (f.type === 'checkbox') {
+            const el = document.getElementById(`${scriptId}-${f.name}`);
+            data[f.name] = !!(el && el.checked);
+            return;
+        }
         const val = getInputValue(`${scriptId}-${f.name}`);
         if (val) {
             if (f.type === 'textarea') {
@@ -1019,8 +1084,12 @@ function renderSummary(scriptId, data, selection) {
     if (layout.summaryRows) {
         if (!selection) selection = collectExportGroups(scriptId);
         keys = layout.summaryRows.filter(r => r.depends === 'always' || selection.includes(r.depends)).map(r => r.key);
+    } else if (layout.summaryKeys) {
+        keys = layout.summaryKeys;
+    } else if (data) {
+        keys = Object.keys(data);
     } else {
-        keys = layout.summaryKeys || [];
+        keys = layout.summaryPlaceholder || [];
     }
 
     if (keys.length === 0) {
@@ -1054,8 +1123,8 @@ function appendTableRow(scriptId, data) {
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const layout = getScriptLayout(service, script) || {};
     const cols = layout.columns && layout.exportGroups
-        ? getVisibleColumns(layout, collectExportGroups(scriptId))
-        : getVisibleColumns(layout, []);
+        ? getVisibleColumns(layout, collectExportGroups(scriptId), scriptId)
+        : getVisibleColumns(layout, [], scriptId);
     const centerCols = [];
     cols.forEach((c, i) => { if (c.center) centerCols.push(i); });
 

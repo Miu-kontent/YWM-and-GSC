@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 CDP_URL = "http://127.0.0.1:9229"
 WEBMASTER_API = "https://api.webmaster.yandex.net/v4"
 REGIONS_URL = "https://webmaster.yandex.ru/site/https:{domain}:443/serp-snippets/regions/"
-AUTH_TIMEOUT = 180
+REGIONS_LOAD_TIMEOUT = 10
 
 STATE_SCAN_JS = """
 () => {
@@ -84,6 +84,16 @@ CLEAR_SELECTED_JS = """
     if (!btn) return false;
     btn.click();
     return true;
+}
+"""
+
+PAGE_PROBE_JS = """
+() => {
+    return {
+        url: location.href,
+        title: document.title || '',
+        text: document.body ? document.body.innerText.slice(0, 600) : ''
+    };
 }
 """
 
@@ -190,6 +200,20 @@ def wait_until(page, js, timeout=8, expected=None):
 
 def toast(msg, toast_type='error'):
     print(f'__TOAST__:{json.dumps({"type": toast_type, "message": str(msg)}, ensure_ascii=False)}')
+
+
+def probe_reason(probe):
+    url = probe.get('url', '') or ''
+    text = ' '.join(((probe.get('text', '') or '') + ' ' + (probe.get('title', '') or '')).lower().split())
+    if 'passport' in url or 'login' in url:
+        return 'не выполнена авторизация в браузере'
+    if '/serp-snippets/regions/' not in url:
+        if any(m in text for m in ('не найден', 'не подтвержд', 'подтвердите', 'нет доступа', 'недостаточно прав')):
+            return 'сайт не найден или не подтверждён'
+        return 'открылась другая страница (сайт не подтверждён?)'
+    if any(m in text for m in ('не подтвержд', 'подтвердите', 'недостаточно прав', 'нет доступа')):
+        return 'сайт не подтверждён'
+    return 'страница региона не загрузилась (проверьте авторизацию)'
 
 
 def match_suggest_index(items, city):
@@ -326,8 +350,9 @@ def main():
                     if last_err is not None:
                         raise last_err
 
-                    if not wait_selector(page, '.RegionsContent', timeout=AUTH_TIMEOUT):
-                        raise RuntimeError('страница региона не загрузилась (проверьте авторизацию)')
+                    if not wait_selector(page, '.RegionsContent', timeout=REGIONS_LOAD_TIMEOUT):
+                        probe = page.evaluate(PAGE_PROBE_JS)
+                        raise RuntimeError(probe_reason(probe))
 
                     state = page.evaluate(STATE_SCAN_JS)
 
@@ -379,14 +404,14 @@ def main():
                     if not ok_fill:
                         raise RuntimeError('поле ввода региона не найдено')
 
-                    ok_items, _ = wait_until(page, SUGGEST_ITEMS_JS, timeout=8)
+                    ok_items, _ = wait_until(page, SUGGEST_ITEMS_JS, timeout=3)
                     if not ok_items:
-                        raise RuntimeError('город не найден в подсказках')
+                        raise RuntimeError('город не найден')
 
                     items = page.evaluate(SUGGEST_ITEMS_JS)
                     idx = match_suggest_index(items, city)
                     if idx < 0:
-                        raise RuntimeError(f'город «{city}» не найден в списке подсказок')
+                        raise RuntimeError(f'город «{city}» не найден')
 
                     clicked = page.evaluate(SELECT_SUGGEST_JS, idx)
                     ok_sel, _ = wait_until(page, "() => !!document.querySelector('.AddRegionContainer_selected')", timeout=6)

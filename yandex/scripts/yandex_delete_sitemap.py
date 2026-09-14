@@ -126,7 +126,7 @@ def main():
         print(f'i  Sites from list: {len(sites)}')
     else:
         print('i  Loading all sites from Webmaster...')
-        status, hosts_data, err = api_request('GET', f'{BASE_URL}/user/{user_id}/hosts', headers)
+        status, hosts_data, err = api_request('GET', f'{BASE_URL}/v4/user/{user_id}/hosts', headers)
         if err:
             print(f'! [ERROR] Failed to load hosts: {err}')
             return
@@ -178,7 +178,7 @@ def main():
 
         status, body, err = api_request(
             'GET',
-            f'{BASE_URL}/user/{user_id}/hosts/{host_id}/user-added-sitemaps',
+            f'{BASE_URL}/v4/user/{user_id}/hosts/{host_id}/user-added-sitemaps',
             headers
         )
 
@@ -210,7 +210,7 @@ def main():
                 continue
             del_status, del_body, del_err = api_request(
                 'DELETE',
-                f'{BASE_URL}/user/{user_id}/hosts/{host_id}/user-added-sitemaps/{sid}',
+                f'{BASE_URL}/v4/user/{user_id}/hosts/{host_id}/user-added-sitemaps/{sid}',
                 headers
             )
             if del_err:
