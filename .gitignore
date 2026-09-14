@@ -14,6 +14,7 @@ test.py
 Launcher.cs
 API вебмастера.txt
 API Метрики.txt
+API GSC.txt
 # Playwright
 playwright-report/
 test-results/

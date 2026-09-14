@@ -14,6 +14,10 @@ CHECKLIST_URL = "https://webmaster.yandex.ru/site/https:{domain}:443/optimizatio
 CHECKLIST_LOAD_TIMEOUT = 25
 API_WAIT_TIMEOUT = 120
 
+
+class HostNotVerifiedError(RuntimeError):
+    pass
+
 REC_CONTAINER_SEL = "#RECOMMENDATION"
 ERR_CONTAINER_SEL = ".DiagnosisChecklistErrors"
 REC_SHOWALL_XPATH = '//*[@id="RECOMMENDATION"]/div/div[2]/div/div/div/button/span[2]/span'
@@ -46,11 +50,6 @@ PROBLEM_TYPES = {
         'name': 'Яндекс Бизнес', 'btn': True,
         'ui_id': 'NO_DICTIONARY_REGIONS',
         'xpath': '//*[@id="NO_DICTIONARY_REGIONS"]/div/div[2]/div/div/div/div/div/div[2]/button/span/span',
-    },
-    'NO_SITEMAPS': {
-        'name': 'Нет используемых sitemap', 'btn': True,
-        'ui_id': 'SITEMAP_NOT_SET',
-        'xpath': '//*[@id="SITEMAP_NOT_SET"]/div/div[2]/div/div/div/div/div/div[2]/button/span/span',
     },
     'NO_REGIONS': {
         'name': 'Нет региона', 'btn': True,
@@ -92,6 +91,9 @@ PROBLEM_TYPES = {
     },
     'TOO_MANY_DOMAINS_ON_SEARCH': {
         'name': 'Много поддоменов', 'btn': False,
+    },
+    'NO_SITEMAPS': {
+        'name': 'Нет используемых sitemap', 'btn': False,
     },
 }
 
@@ -153,25 +155,50 @@ CLICK_CHECK_BTN_JS = """
         || btn.classList.contains('disabled')
         || btn.getAttribute('aria-disabled') === 'true';
 
-    if (disabled) return {found: true, clicked: true};
+    if (disabled) return {found: true, clicked: true, already: true};
 
     btn.scrollIntoView({behavior: 'instant', block: 'center'});
     btn.click();
-    return {found: true, clicked: true};
+    return {found: true, clicked: true, already: false};
 }
 """
 
 CHECK_VERIFY_JS = """
 (code) => {
     const block = document.getElementById(code);
-    if (!block) return true;
+    if (!block) return 'done';
     const st = block.querySelector('.DiagnosisChecklistProblemTitle-Status');
     if (st) {
         const cls = st.className || '';
-        if (cls.includes('status_IN_PROGRESS') || (st.textContent || '').includes('Проверяем')) return true;
+        if (cls.includes('status_IN_PROGRESS') || (st.textContent || '').includes('Проверяем')) return 'done';
     }
     const btn = block.querySelector('button.DiagnosisChecklistProblemCheckButton-SubmitButton');
-    return !btn;
+    if (!btn) return 'done';
+    const disabled = btn.disabled
+        || btn.classList.contains('g-button_disabled')
+        || btn.classList.contains('disabled')
+        || btn.getAttribute('aria-disabled') === 'true';
+    if (disabled) return 'done';
+    const hdr = block.querySelector('.Accordion-Header');
+    if (hdr && !hdr.classList.contains('Accordion-Header_expanded')) return 'done';
+    return 'pending';
+}
+"""
+
+BLOCK_DEBUG_JS = """
+(code) => {
+    const block = document.getElementById(code);
+    if (!block) return 'block not found';
+    const st = block.querySelector('.DiagnosisChecklistProblemTitle-Status');
+    const btn = block.querySelector('button.DiagnosisChecklistProblemCheckButton-SubmitButton');
+    const date = block.querySelector('.DiagnosisChecklistProblemTitle-Date');
+    const hdr = block.querySelector('.Accordion-Header');
+    return JSON.stringify({
+        status: st ? (st.textContent || '').trim() : null,
+        btn: btn ? (btn.textContent || '').trim() + ' | disabled=' + (btn.disabled || btn.classList.contains('g-button_disabled')) : 'none',
+        date: date ? (date.textContent || '').trim() : '',
+        accordionExpanded: hdr ? hdr.classList.contains('Accordion-Header_expanded') : 'n/a'
+    });
 }
 """
 
@@ -296,18 +323,24 @@ def get_hosts_map(user_id, headers):
         return None, message
     hosts = hosts_data.get('hosts', []) or []
     result = {}
-    skipped = 0
+    skipped_mirrors = 0
+    skipped_unverified = 0
     for h in hosts:
+        if h.get('verified') is False:
+            skipped_unverified += 1
+            continue
         mm = h.get('main_mirror') or {}
         if mm.get('host_id') or mm.get('unicode_host_url'):
-            skipped += 1
+            skipped_mirrors += 1
             continue
         h_url = h.get('ascii_host_url', '') or h.get('unicode_host_url', '')
         hostname = normalize_host(h_url)
         if hostname and h.get('host_id'):
             result[hostname] = h['host_id']
-    if skipped:
-        print(f'ℹ️  Пропущено зеркал: {skipped}')
+    if skipped_mirrors:
+        print(f'ℹ️  Пропущено зеркал: {skipped_mirrors}')
+    if skipped_unverified:
+        print(f'ℹ️  Пропущено неподтверждённых хостов: {skipped_unverified}')
     return result, None
 
 
@@ -323,7 +356,10 @@ def fetch_diagnostics(token, user_id, host_id, retries=3, timeout=30):
             if resp.status_code == 429:
                 time.sleep(2)
                 continue
-            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+            text = resp.text or ''
+            if resp.status_code == 404 and 'not verified' in text.lower():
+                raise HostNotVerifiedError(f"HTTP 404: {text[:200]}")
+            raise RuntimeError(f"HTTP {resp.status_code}: {text[:200]}")
         except requests.exceptions.Timeout:
             if attempt == retries - 1:
                 raise
@@ -363,15 +399,24 @@ def click_check_button(page, ui_id, meta):
     xpath = (meta or {}).get('xpath') or None
     page.evaluate(CLICK_BLOCK_HEADER_JS, ui_id)
     page.wait_for_timeout(500)
+
     for attempt in range(3):
         res = page.evaluate(CLICK_CHECK_BTN_JS, [ui_id, xpath])
         if not res.get('found'):
-            return 'unfound'
-        if res.get('clicked'):
+            return 'done' if page.evaluate(CHECK_VERIFY_JS, ui_id) == 'done' else 'unfound'
+        if res.get('already'):
+            return 'done'
+        if not res.get('clicked'):
+            page.wait_for_timeout(800)
+            continue
+        for _ in range(4):
             page.wait_for_timeout(1000)
-            if page.evaluate(CHECK_VERIFY_JS, ui_id):
+            if page.evaluate(CHECK_VERIFY_JS, ui_id) == 'done':
                 return 'done'
-        page.wait_for_timeout(800)
+        break
+
+    debug = page.evaluate(BLOCK_DEBUG_JS, ui_id)
+    print(f'   ⚠️  Не удалось подтвердить блок {ui_id} — {debug}')
     return 'fail'
 
 
@@ -425,7 +470,7 @@ def process_section(page, section_counters, codes):
 class SiteTask:
     __slots__ = (
         'domain', 'host_id', 'rec_enabled', 'err_enabled',
-        'api_event', 'api_problems', 'api_err',
+        'api_event', 'api_problems', 'api_err', 'host_unverified',
         'err', 'result', 'done_event',
     )
     def __init__(self, domain, host_id, rec_enabled, err_enabled):
@@ -436,6 +481,7 @@ class SiteTask:
         self.api_event = threading.Event()
         self.api_problems = None
         self.api_err = None
+        self.host_unverified = False
         self.err = None
         self.result = None
         self.done_event = threading.Event()
@@ -444,6 +490,9 @@ class SiteTask:
 def api_worker(task, token, user_id, host_id):
     try:
         task.api_problems = fetch_diagnostics(token, user_id, host_id)
+        task.api_err = None
+    except HostNotVerifiedError:
+        task.host_unverified = True
         task.api_err = None
     except Exception as e:
         task.api_err = e
@@ -473,6 +522,9 @@ def process_site_in_browser(page, task):
         raise RuntimeError('запрос diagnostics не вернулся')
     if task.api_err:
         raise task.api_err
+    if task.host_unverified:
+        task.result = {'empty': True}
+        return
 
     problems = task.api_problems or {}
     rec_codes = []
@@ -664,9 +716,9 @@ def main():
             unverified += 1
             cells = [domain]
             if rec_enabled:
-                cells += ['0', '❌ Не подтверждён']
+                cells += ['—', '—']
             if err_enabled:
-                cells += ['0', '❌ Не подтверждён']
+                cells += ['—', '—']
             print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
             continue
 
@@ -680,21 +732,31 @@ def main():
             script_errors += 1
             cells = [domain]
             if rec_enabled:
-                cells += ['0', '❌ прервано: воркер не ответил']
+                cells += ['—', '❌ прервано: воркер не ответил']
             if err_enabled:
-                cells += ['0', '❌ прервано: воркер не ответил']
+                cells += ['—', '❌ прервано: воркер не ответил']
             print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
             toast('Браузер-воркер не отвечает, прогон прерван')
             break
+
+        if task.host_unverified:
+            unverified += 1
+            cells = [domain]
+            if rec_enabled:
+                cells += ['—', '—']
+            if err_enabled:
+                cells += ['—', '—']
+            print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
+            continue
 
         if task.err:
             script_errors += 1
             reason = str(task.err)[:80]
             cells = [domain]
             if rec_enabled:
-                cells += ['0', f'❌ {reason}']
+                cells += ['—', f'❌ {reason}']
             if err_enabled:
-                cells += ['0', f'❌ {reason}']
+                cells += ['—', f'❌ {reason}']
             print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
             continue
 
@@ -702,9 +764,9 @@ def main():
         if res.get('empty'):
             cells = [domain]
             if rec_enabled:
-                cells += ['0', '0']
+                cells += ['—', '—']
             if err_enabled:
-                cells += ['0', '0']
+                cells += ['—', '—']
             print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
             continue
 
@@ -727,11 +789,11 @@ def main():
 
         cells = [domain]
         if rec_enabled:
-            cells.append(rec_names or ['0'])
-            cells.append(rec_statuses or ['0'])
+            cells.append(rec_names or ['—'])
+            cells.append(rec_statuses or ['—'])
         if err_enabled:
-            cells.append(err_names or ['0'])
-            cells.append(err_statuses or ['0'])
+            cells.append(err_names or ['—'])
+            cells.append(err_statuses or ['—'])
 
         print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
 
