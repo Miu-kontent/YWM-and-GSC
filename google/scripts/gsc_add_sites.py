@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 
 import gsc_client
 
-QUOTA_WAIT = 30
-QUOTA_RETRIES = 3
+QUOTA_WAIT = 10
+QUOTA_RETRIES = 10
 
 
 def load_data():
@@ -103,8 +103,11 @@ def main():
 
     total = len(links)
     added = earlier = confirmed = errors = 0
+    processed = 0
 
     for site in links:
+        processed += 1
+        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
         site_url = to_site_url(site)
         if not site_url:
             errors += 1
