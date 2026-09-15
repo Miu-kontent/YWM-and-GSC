@@ -77,12 +77,9 @@ def main():
 
     webmasters, _, _, auth_info = gsc_client.build_services()
     if not webmasters:
-        print()
         print(f"⚠️  {auth_info}")
-        print("ℹ️  Авторизуйтесь на вкладке Google → Авторизоваться")
         return
 
-    print()
     print(f"ℹ️  Аккаунт: {auth_info}")
     print(f"ℹ️  Сайтмапы: {'включены' if show_sitemaps else 'выключены'}")
     if links:
@@ -105,14 +102,11 @@ def main():
 
     total = len(sites)
     print(f"ℹ️  Сайтов анализируется: {total}")
-    print()
 
     config = gsc_client.load_config()
     sitemap_path = str(config.get('sitemap_path') or '').strip()
     if show_sitemaps and not sitemap_path:
-        print()
         print("❌ Для выгрузки сайтмапов нужен sitemap_path в настройках Google")
-        print("ℹ️  Укажите 'Путь сайтмапа' на вкладке Google (например /sitemap/)")
         return
     if not sitemap_path.startswith('/'):
         sitemap_path = '/' + sitemap_path
