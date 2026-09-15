@@ -49,6 +49,11 @@ def normalize_host(url):
     return (parsed.hostname or '').lower()
 
 
+def is_mirror(h):
+    mm = h.get('main_mirror') or {}
+    return bool(mm.get('host_id') or mm.get('unicode_host_url'))
+
+
 def api_request(method, url, headers, json_body=None, retries=3, timeout=10):
     for attempt in range(retries):
         try:
@@ -110,10 +115,6 @@ def main():
     else:
         sites = []
 
-    if not sites:
-        print('❌ Нет сайтов для обработки!')
-        return
-
     headers = {
         'Authorization': f'OAuth {token}',
         'Content-Type': 'application/json'
@@ -127,7 +128,6 @@ def main():
 
     print(f'ℹ️  user_id: {user_id}')
     print(f'ℹ️  Путь сайтмапа: {sitemap_path}')
-    print(f'ℹ️  Сайтов к обработке: {len(sites)}')
 
     print(f'ℹ️  Получаю список сайтов из вебмастера...')
     status, hosts_data, err = api_request(
@@ -152,6 +152,21 @@ def main():
             if hostname and hostname not in hosts_index:
                 hosts_index[hostname] = host_id
     log(f'Получено хостов: {len(all_hosts)}')
+
+    if not sites:
+        for h in all_hosts:
+            if is_mirror(h):
+                continue
+            hostname = normalize_host(h.get('ascii_host_url', '') or h.get('unicode_host_url', ''))
+            if hostname:
+                sites.append(hostname)
+        print(f'ℹ️  Режим: все сайты из Вебмастера ({len(sites)}, без зеркал)')
+    else:
+        print(f'ℹ️  Сайтов из списка: {len(sites)}')
+
+    if not sites:
+        print('❌ Нет сайтов для обработки!')
+        return
 
     added_count = 0
     already_count = 0
