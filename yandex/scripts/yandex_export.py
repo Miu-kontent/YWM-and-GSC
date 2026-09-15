@@ -78,23 +78,19 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
-    print("ℹ️ === ЭКСПОРТ ДАННЫХ ЯНДЕКС.ВЕБМАСТЕРА ===")
+    print("ℹ️ Запуск скрипта...")
 
     config = load_config()
     script_data = load_script_data()
 
     token = config.get("oauth_token")
     if not token:
-        print()
         print("⚠️  Для запуска скрипта не хватает данных: oauth_token")
-        print("ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить")
         return
 
     user_id = config.get("user_id")
     if not user_id:
-        print()
         print("⚠️  Для запуска скрипта не хватает данных: user_id")
-        print("ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить")
         return
 
     raw_sitemap = config.get("sitemap_path", "")
@@ -115,11 +111,8 @@ def main():
 
     headers = {"Authorization": f"OAuth {token}"}
 
-    print(f"ℹ️  user_id: {user_id}")
     if filter_links:
         print(f"ℹ️  Фильтр по ссылкам: {len(filter_links)} шт.")
-    if correct_sitemaps:
-        print(f"ℹ️  Правильные сайтмапы: {correct_sitemaps}")
 
     hosts_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts", headers)
     if err:
@@ -169,7 +162,6 @@ def main():
 
     total = len(hosts)
     print(f"ℹ️  Сайтов к обработке: {total}")
-    print()
 
     export_groups = script_data.get("export_groups", []) or []
     need_status = "status" in export_groups
@@ -198,7 +190,7 @@ def main():
         if not h_verified:
             unverified_count += 1
 
-        verified_str = "✓" if h_verified else "✗"
+        verified_str = "✅" if h_verified else "❌"
 
         own_main = host.get("main_mirror") or {}
         if own_main.get("unicode_host_url"):
@@ -351,12 +343,10 @@ def main():
         summary_data["С неправильными сайтмапами"] = with_wrong_sitemaps_count
         summary_data["Сайтмапы не в OK"] = sitemaps_not_ok_count
 
-    print()
     print(f"__SUMMARY__:{json.dumps(summary_data, ensure_ascii=False)}")
     print("__TABLE_DONE__:{}")
 
-    print()
-    print("ℹ️ === ЭКСПОРТ ЗАВЕРШЁН ===")
+    print("ℹ️ Готово")
 
 
 if __name__ == "__main__":

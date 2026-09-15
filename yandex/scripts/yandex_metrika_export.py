@@ -9,8 +9,8 @@ from urllib.parse import urlparse
 BASE_URL = "https://api-metrika.yandex.net"
 
 SITE_STATUS_LABELS = {
-    "": "Не привязан",
-    "ok": "Привязан",
+    "": "Добавлен",
+    "ok": "Привязан ранее",
     "need_webmaster_confirm": "Ожидает подтверждения",
     "deleted": "Откреплён",
 }
@@ -156,10 +156,10 @@ def main():
 
     for e in entries:
         label = SITE_STATUS_LABELS.get(e['status'])
-        if label is None:
-            label = f"Статус: {e['status']}"
-        if e['status'] == 'ok':
+        if e['status'] == '':
             label = f"✅ {label}"
+        if e['status'] == 'ok':
+            label = f"⭐ {label}"
         elif e['status'] == 'need_webmaster_confirm':
             label = f"⚠️ {label}"
         print(f"__TABLE_ROW__:{json.dumps({'cells': [e['site'], label]}, ensure_ascii=False)}")

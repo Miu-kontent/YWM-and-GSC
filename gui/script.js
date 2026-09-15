@@ -150,6 +150,8 @@ const SCRIPT_REQUIREMENTS = {
         yandex_metrika_test:        ['oauth_token']
     },
     google: {
+        gsc_export:             ['active_account'],
+        gsc_add_sites:          ['active_account', 'links'],
         gsc_export_test:        ['active_account']
     }
 };
@@ -993,7 +995,7 @@ async function runScript(service, script) {
     runningScripts[scriptId] = true;
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '⏳ Запуск...';
+        btn.textContent = '⏳ Выполняется...';
     }
     statusEl.textContent = 'Запуск...';
     statusEl.style.color = 'var(--accent)';
