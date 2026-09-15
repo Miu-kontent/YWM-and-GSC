@@ -67,10 +67,29 @@
                 {
                     "id": "verify",
                     "name": "Подтверждение",
-                    "description": "Подтверждение сайтов: GA -> ANALYTICS -> META -> FILE",
-                    "script": null,
+                    "description": "Подтверждение прав на сайты через Site Verification API (META → FILE)",
+                    "script": "gsc_verify",
                     "type": "api",
-                    "fields": ["gsc_subdomains"]
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты (по одному на строку, пусто = все)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты подтверждения",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Подтверждённых ранее", "depends": "always"},
+                            {"key": "Подтверждённых", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 },
                 {
                     "id": "delete",

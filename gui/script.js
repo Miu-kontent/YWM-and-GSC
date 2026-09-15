@@ -152,6 +152,7 @@ const SCRIPT_REQUIREMENTS = {
     google: {
         gsc_export:             { always: ['active_account'], ifField: { show_sitemaps: ['sitemap_path'] } },
         gsc_add_sites:          ['active_account', 'links'],
+        gsc_verify:             ['active_account'],
         gsc_export_test:        ['active_account']
     }
 };

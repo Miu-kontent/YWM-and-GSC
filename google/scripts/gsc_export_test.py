@@ -1,19 +1,3 @@
-"""
-gsc_export_test.py — тестовая выгрузка всех возможных данных Google Search Console.
-
-Прогоняет по выбранным сайтам все доступные методы:
-    sites.get, sitemaps.list, searchanalytics.query (6 блоков),
-    urlInspection.index.inspect, siteVerification.webResource.list/get.
-
-Входные данные (google/arrays/gsc_export_test.json):
-    links       — сайты (по одному на строку). Пусто = первые MAX_ROWS из sites.list
-    date_from   — дата от (YYYY-MM-DD), пусто = последние 28 дней
-    date_to     — дата до (YYYY-MM-DD)
-    type        — тип выдачи: web / image / video / news / discover (по умолчанию web)
-
-Всё выводится в лог-блок GUI обычным print (без протокола таблиц) — результат
-читает пользователь и выбирает элементы для основной выгрузки.
-"""
 import json
 import os
 import sys
