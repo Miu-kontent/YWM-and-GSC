@@ -43,27 +43,33 @@ def host_of(url):
     return (urlparse(url).hostname or '').lower()
 
 
-def is_bad_sitemap(s):
-    return bool(s.get('isPending') is True or s.get('errors') or s.get('warnings'))
+def sitemap_status(s):
+    try:
+        errors = int(s.get('errors') or 0)
+    except (TypeError, ValueError):
+        errors = 0
+    if errors > 0:
+        return 'error'
+    if s.get('isPending'):
+        return 'pending'
+    return 'ok'
 
 
 def sitemap_status_label(s, expected):
     correct = (s.get('path') or '') == expected
-    bad = is_bad_sitemap(s)
-    if correct and not bad:
-        return "✅"
-    if correct and bad:
-        return "❌ плохой статус"
-    if not correct and bad:
-        return "⚠️ плохой статус"
-    return "ℹ️"
+    if not correct:
+        return "⚠️ Неправильный"
+    status = sitemap_status(s)
+    if status == 'error':
+        return "❌ Ошибка"
+    if status == 'pending':
+        return "⏳ В обработке"
+    return "✅ Успешно"
 
 
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
-
-    print("ℹ️ === ВЫГРУЗКА GOOGLE SEARCH CONSOLE ===")
 
     data = load_data()
     links = parse_links(data.get('links'))
@@ -112,8 +118,11 @@ def main():
         sitemap_path = '/' + sitemap_path
 
     unverified = no_correct = wrong_sites = correct_bad = 0
+    processed = 0
 
     for s in sites:
+        processed += 1
+        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
         site_url = s.get('siteUrl', '')
         level = s.get('permissionLevel', '')
         rights = PERMISSION_LABELS.get(level, level)
@@ -154,7 +163,7 @@ def main():
                 no_correct += 1
             if wrong_maps:
                 wrong_sites += 1
-            if any(is_bad_sitemap(sm) for sm in correct_maps):
+            if any(sitemap_status(sm) != 'ok' for sm in correct_maps):
                 correct_bad += 1
 
         cells += [paths, statuses]

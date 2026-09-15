@@ -1,13 +1,3 @@
-"""
-gsc_add_sites.py — Массовое добавление сайтов в Google Search Console (API).
-
-Добавляет сайты как URL-prefix: https://host/
-Если сайт уже есть в аккаунте — статус показывает текущие права (подтверждён/нет),
-чтобы в тестовой выгрузке было видно разницу между подтверждёнными и нет.
-
-Входные данные (google/arrays/gsc_add_sites.json):
-    links — сайты, по одному на строку (обязательно)
-"""
 import json
 import os
 import sys
@@ -16,16 +6,8 @@ from urllib.parse import urlparse
 
 import gsc_client
 
-PERMISSION_LABELS = {
-    "siteOwner": "🟢 Владелец",
-    "siteFullUser": "🔵 Полный доступ",
-    "siteRestrictedUser": "🟡 Ограниченный доступ",
-    "siteUnverifiedUser": "⚪ Не подтверждён",
-}
-
 QUOTA_WAIT = 30
 QUOTA_RETRIES = 3
-CALL_DELAY = 3
 
 
 def load_data():
@@ -94,25 +76,18 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
 
-    print("ℹ️ === ДОБАВЛЕНИЕ САЙТОВ В GOOGLE SEARCH CONSOLE ===")
-
     data = load_data()
     links = parse_links(data.get('links'))
 
     if not links:
-        print()
         print("⚠️  Для запуска скрипта не хватает данных: links")
-        print("ℹ️  Укажите сайты для добавления в поле 'Сайты'")
         return
 
     webmasters, _, _, auth_info = gsc_client.build_services()
     if not webmasters:
-        print()
         print(f"⚠️  {auth_info}")
-        print("ℹ️  Авторизуйтесь на вкладке Google → Авторизоваться")
         return
 
-    print()
     print(f"ℹ️  Аккаунт: {auth_info}")
     print(f"ℹ️  Сайтов для добавления: {len(links)}")
 
@@ -144,8 +119,7 @@ def main():
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "ℹ️ Добавлен ранее"]}, ensure_ascii=False)}')
             else:
                 confirmed += 1
-                label = PERMISSION_LABELS.get(level, level)
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, f"⭐ Подтверждён ({label})"]}, ensure_ascii=False)}')
+                print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, f"⭐ Подтверждён"]}, ensure_ascii=False)}')
         else:
             ok, err = add_site(webmasters, site_url)
             if ok:
@@ -154,8 +128,6 @@ def main():
             else:
                 errors += 1
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, f"❌ {err}"]}, ensure_ascii=False)}')
-
-        time.sleep(CALL_DELAY)
 
     summary = {
         "Сайты": total,
