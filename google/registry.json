@@ -76,7 +76,20 @@
             "id": "tests",
             "name": "Тесты",
             "description": "Тестовые скрипты (не из реестра)",
-            "subcategories": []
+            "subcategories": [
+                {
+                    "id": "gsc_export_test",
+                    "name": "Экспорт данных Google (тест)",
+                    "description": "Тестовая выгрузка всех методов GSC: сайты, сайтмапы, аналитика, проверка URL. Пусто в links = первые 3 сайта",
+                    "script": "gsc_export_test",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для анализа (по одному на строку, пусто = первые 3)"},
+                        {"name": "date_from", "type": "date", "label": "Дата от"},
+                        {"name": "date_to", "type": "date", "label": "Дата до"}
+                    ]
+                }
+            ]
         }
     ],
     "excludedScripts": ["loadConfig", "loadGoogleConfig"]

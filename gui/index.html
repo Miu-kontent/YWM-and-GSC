@@ -91,21 +91,12 @@
                             <button class="btn btn--primary" onclick="launchBrowser('google')">🌐 Браузер (порт 9227)</button>
                             <button class="btn btn--primary" onclick="saveKeys('google', event)">💾 Сохранить Google</button>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Client ID</label>
-                            <input type="text" class="form-control" data-service="google" data-field="client_id" placeholder="xxx.apps.googleusercontent.com">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Client Secret</label>
-                            <input type="text" class="form-control" data-service="google" data-field="client_secret" placeholder="GOCSPX-...">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Access Token</label>
-                            <input type="text" class="form-control" data-service="google" data-field="access_token" placeholder="ya29.a0A...">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Auth Code</label>
-                            <input type="text" class="form-control" data-service="google" data-field="auth_code" placeholder="4/0A... (одноразовый)">
+                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+                            <div class="form-group">
+                                <label class="form-label">Аккаунт Google</label>
+                                <select class="form-control" data-service="google" data-field="active_account" title="Аккаунт, токены которого использует приложение"><option value="">— аккаунт не авторизован —</option></select>
+                            </div>
+                            <button class="btn btn--primary btn--small" onclick="googleAuthorize()">🔑 Авторизоваться</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Sitemap</label>
@@ -179,21 +170,12 @@
                     </div>
                 </div>
                 <div class="accordion__body hidden" id="google-keys-body">
-                    <div class="form-group">
-                        <label class="form-label">Client ID</label>
-                        <input type="text" class="form-control" data-service="google" data-field="client_id" placeholder="xxx.apps.googleusercontent.com">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Client Secret</label>
-                        <input type="password" class="form-control" data-service="google" data-field="client_secret" placeholder="GOCSPX-...">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Access Token</label>
-                        <input type="password" class="form-control" data-service="google" data-field="access_token" placeholder="ya29.a0A...">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Auth Code</label>
-                        <input type="text" class="form-control" data-service="google" data-field="auth_code" placeholder="4/0A... (одноразовый)">
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+                        <div class="form-group">
+                            <label class="form-label">Аккаунт Google</label>
+                            <select class="form-control" data-service="google" data-field="active_account" title="Аккаунт, токены которого использует приложение"><option value="">— аккаунт не авторизован —</option></select>
+                        </div>
+                        <button class="btn btn--primary btn--small" onclick="googleAuthorize()">🔑 Авторизоваться</button>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Sitemap</label>

@@ -112,7 +112,7 @@ window._scriptsData = { yandex: {}, google: {} };
 
 const serviceFields = {
     yandex: ['oauth_token', 'user_id', 'metric_id', 'contact_path', 'sitemap_path'],
-    google: ['client_id', 'client_secret', 'access_token', 'auth_code', 'sitemap_path']
+    google: ['active_account', 'sitemap_path']
 };
 
 // Человекочитаемые названия ключей для toast-уведомлений
@@ -122,10 +122,7 @@ const KEY_LABELS = {
     metric_id: 'Счётчик метрики',
     contact_path: 'Путь контактов',
     sitemap_path: 'Путь сайтмапа',
-    client_id: 'Client ID',
-    client_secret: 'Client Secret',
-    access_token: 'Access Token',
-    auth_code: 'Auth Code',
+    active_account: 'Google аккаунт',
     links: 'Сайты',
     city: 'Города'
 };
@@ -152,7 +149,9 @@ const SCRIPT_REQUIREMENTS = {
         yandex_export_test:         ['oauth_token', 'user_id'],
         yandex_metrika_test:        ['oauth_token']
     },
-    google: {}
+    google: {
+        gsc_export_test:        ['active_account']
+    }
 };
 
 function getSubcategoryForScript(service, script) {
@@ -241,13 +240,63 @@ async function loadGlobalKeys() {
         setKeyValue('yandex', 'contact_path', yandexCfg.contact_path);
         setKeyValue('yandex', 'sitemap_path', yandexCfg.sitemap_path);
 
-        setKeyValue('google', 'client_id', googleCfg.client_id);
-        setKeyValue('google', 'client_secret', googleCfg.client_secret);
-        setKeyValue('google', 'access_token', googleCfg.access_token);
-        setKeyValue('google', 'auth_code', googleCfg.auth_code);
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
+
+        await refreshGoogleAccounts();
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
+    }
+}
+
+async function refreshGoogleAccounts() {
+    try {
+        const res = await window.pywebview.api.get_google_accounts();
+        const accounts = (res && res.accounts) || [];
+        const active = (res && res.active) || '';
+        const options = accounts.length
+            ? accounts.map(a => `<option value="${escHtml(a)}"${a === active ? ' selected' : ''}>${escHtml(a)}</option>`).join('')
+            : '<option value="">— аккаунт не авторизован —</option>';
+
+        document.querySelectorAll('[data-service="google"][data-field="active_account"]').forEach(sel => {
+            sel.innerHTML = options;
+            sel.value = accounts.includes(active) ? active : '';
+        });
+
+        if (!active && accounts.length === 1) {
+            await window.pywebview.api.save_config('google', { active_account: accounts[0] });
+            setKeyValue('google', 'active_account', accounts[0]);
+        }
+        return accounts;
+    } catch (err) {
+        addLoaderLog(`⚠️ Ошибка загрузки Google-аккаунтов: ${err.message}`);
+        return [];
+    }
+}
+
+async function googleAuthorize() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Авторизация...';
+    try {
+        const browser = await window.pywebview.api.check_browser('google');
+        if (!browser.running) {
+            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9227)"', 'error');
+            return;
+        }
+        showToast('Авторизуйтесь в открывшейся вкладке браузера (порт 9227)...', 'info');
+        const result = await window.pywebview.api.google_authorize();
+        if (result.log) result.log.forEach(line => console.log(`[google-auth] ${line}`));
+        if (result.success) {
+            await refreshGoogleAccounts();
+            showToast(`Аккаунт ${result.account} авторизован`, 'success');
+        } else {
+            showToast(result.message || 'Авторизация не удалась', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Авторизоваться';
     }
 }
 

@@ -4,6 +4,8 @@ __pycache__/
 yandex/app_config.json
 yandex/config.json
 yandex/arrays/*
+google/app_config.json
+google/accounts.json
 google/config.json
 google/arrays/*
 DEVELOPMENT_PLAN.md

@@ -157,7 +157,6 @@ def main():
         if normalize_host(site) in existing_hosts:
             already_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
-            time.sleep(0.3)
             continue
 
         host_url = normalize_host_url(site)

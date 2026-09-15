@@ -242,7 +242,6 @@ def main():
                 used_method = f'{method} (уже в процессе)'
                 break
             log(f'  {method} не сработал: {result}')
-            time.sleep(0.3)
 
         if success:
             newly_verified += 1

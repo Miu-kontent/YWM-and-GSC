@@ -32,6 +32,8 @@ class Api:
         self.yandex_arrays_dir = os.path.join(self.yandex_dir, "arrays")
         self.yandex_scripts_dir = os.path.join(self.yandex_dir, "scripts")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
+        self.google_app_config_path = os.path.join(self.google_dir, "app_config.json")
+        self.google_accounts_path = os.path.join(self.google_dir, "accounts.json")
         self.google_arrays_dir = os.path.join(self.google_dir, "arrays")
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
@@ -116,10 +118,7 @@ class Api:
             })
         else:
             default.update({
-                "client_id": "", 
-                "client_secret": "", 
-                "access_token": "", 
-                "auth_code": "", 
+                "active_account": "", 
                 "sitemap_path": ""
             })
 
@@ -375,6 +374,154 @@ class Api:
                 msg = "Счётчик не получен"
 
         return {"success": bool(metric_id), "metric_id": metric_id or "", "message": msg, "log": result.get("log", [])}
+
+    # ======================== GOOGLE OAUTH (DESKTOP) ========================
+
+    GOOGLE_SCOPES = [
+        "https://www.googleapis.com/auth/webmasters",
+        "https://www.googleapis.com/auth/siteverification",
+        "openid",
+        "https://www.googleapis.com/auth/userinfo.email",
+    ]
+
+    def _get_google_app_config(self):
+        if not os.path.exists(self.google_app_config_path):
+            return None
+        try:
+            with open(self.google_app_config_path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
+            for key in ("installed", "web"):
+                if key in data:
+                    return data[key]
+        except Exception as e:
+            print(f"[API] Ошибка чтения google/app_config.json: {e}")
+        return None
+
+    def _load_google_accounts(self):
+        data = {}
+        if os.path.exists(self.google_accounts_path):
+            try:
+                with open(self.google_accounts_path, "r", encoding="utf-8-sig") as f:
+                    loaded = json.load(f)
+                data = loaded.get("accounts", loaded) if isinstance(loaded, dict) else {}
+            except Exception as e:
+                print(f"[API] Ошибка чтения google/accounts.json: {e}")
+        return data
+
+    def _save_google_accounts(self, accounts):
+        os.makedirs(self.google_dir, exist_ok=True)
+        with open(self.google_accounts_path, "w", encoding="utf-8") as f:
+            json.dump({"accounts": accounts}, f, ensure_ascii=False, indent=4)
+
+    def _get_google_email(self, creds):
+        id_token = getattr(creds, "id_token", None)
+        if id_token:
+            try:
+                import base64
+                payload = id_token.split('.')[1]
+                payload += '=' * (-len(payload) % 4)
+                data = json.loads(base64.urlsafe_b64decode(payload))
+                email = data.get("email", "")
+                if email:
+                    return email
+            except Exception:
+                pass
+        try:
+            r = requests.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {creds.token}"},
+                timeout=10,
+            )
+            if r.status_code == 200:
+                return r.json().get("email", "")
+        except Exception:
+            pass
+        return ""
+
+    def google_authorize(self):
+        try:
+            from google_auth_oauthlib.flow import InstalledAppFlow
+        except ImportError:
+            return {"success": False,
+                    "message": "Не установлены google-auth-oauthlib / google-api-python-client. Установите: pip install -r requirements.txt"}
+
+        app_cfg = self._get_google_app_config()
+        if not app_cfg:
+            return {"success": False, "message": "Не найден файл google/app_config.json (данные Desktop-приложения)"}
+
+        browser = self.check_browser("google")
+        if not browser.get("running"):
+            return {"success": False,
+                    "message": "Браузер Google (порт 9227) не запущен. Откройте его кнопкой «🌐 Браузер (порт 9227)»"}
+
+        client_key = "installed" if "installed" in app_cfg else "web"
+
+        import webbrowser
+
+        class _DebugChromeController:
+            def __init__(self, opener):
+                self._opener = opener
+
+            def open(self, url, new=0, autoraise=True):
+                return self._opener(url)
+
+            def open_new(self, url):
+                return self._opener(url)
+
+            def open_new_tab(self, url):
+                return self._opener(url)
+
+        webbrowser.register(
+            "google-debug-9227",
+            _DebugChromeController,
+            instance=_DebugChromeController(self._open_in_google_debug_browser),
+        )
+
+        try:
+            flow = InstalledAppFlow.from_client_config(
+                {client_key: app_cfg}, scopes=self.GOOGLE_SCOPES)
+            creds = flow.run_local_server(
+                port=0, open_browser=True, prompt="consent", browser="google-debug-9227")
+        except Exception as e:
+            return {"success": False, "message": f"Ошибка авторизации: {e}"}
+
+        email = self._get_google_email(creds)
+        if not email:
+            return {"success": False, "message": "Не удалось определить email аккаунта (не получен id_token)"}
+
+        accounts = self._load_google_accounts()
+        accounts[email] = {
+            "access_token": creds.token,
+            "refresh_token": creds.refresh_token or "",
+            "token_expiry": int(creds.expiry.timestamp()) if creds.expiry else None,
+        }
+        self._save_google_accounts(accounts)
+
+        config = self.get_config("google")
+        config["active_account"] = email
+        self.save_config("google", config)
+
+        return {"success": True, "account": email, "log": [f"✅ Аккаунт {email} авторизован и сохранён"]}
+
+    def get_google_accounts(self):
+        accounts = self._load_google_accounts()
+        config = self.get_config("google")
+        return {"success": True, "accounts": list(accounts.keys()), "active": config.get("active_account", "")}
+
+    def _open_in_google_debug_browser(self, url):
+        """Открывает URL новой вкладкой в отладочном Chrome (порт 9227) через CDP /json/new."""
+        try:
+            import urllib.parse
+            resp = requests.put(
+                f"http://127.0.0.1:9227/json/new?{urllib.parse.quote(url, safe='')}",
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                raise RuntimeError(f"CDP ответил HTTP {resp.status_code}")
+            return True
+        except Exception as e:
+            print(f"[API] Ошибка открытия вкладки в браузере 9227: {e}")
+            raise RuntimeError(f"Не удалось открыть вкладку в браузере 9227: {e}")
 
 def main():
     shell32 = ctypes.windll.shell32
