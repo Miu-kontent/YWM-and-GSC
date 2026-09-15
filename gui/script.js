@@ -138,7 +138,7 @@ const SCRIPT_REQUIREMENTS = {
         yandex_verify:              ['oauth_token', 'user_id'],
         yandex_sites_to_delete:     ['oauth_token', 'user_id', 'links'],
         yandex_region_add:          { always: ['oauth_token', 'user_id'], ifLinks: ['contact_path', 'city'] },
-        yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path', 'links'],
+        yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path'],
         yandex_delete_sitemap:      ['oauth_token', 'user_id', 'sitemap_path'],
         yandex_sitemap_recrawl:     ['oauth_token', 'user_id', 'sitemap_path'],
         yandex_checklist:           ['oauth_token', 'user_id'],
@@ -153,6 +153,8 @@ const SCRIPT_REQUIREMENTS = {
         gsc_export:             { always: ['active_account'], ifField: { show_sitemaps: ['sitemap_path'] } },
         gsc_add_sites:          ['active_account', 'links'],
         gsc_verify:             ['active_account'],
+        gsc_add_sitemap:        ['active_account', 'sitemap_path'],
+        gsc_resend_sitemap:     ['active_account', 'sitemap_path'],
         gsc_export_test:        ['active_account']
     }
 };
@@ -1232,10 +1234,66 @@ function finalizeTable(scriptId) {
     if (!el) return;
     const existing = el.querySelector('.table-actions');
     if (existing) return;
+    const dashIdx = scriptId.indexOf('-');
+    const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
+    const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
+    const layout = getScriptLayout(service, script) || {};
+
+    const postBtns = (layout.postActions || [])
+        .filter(a => {
+            if (!a.depends || a.depends === 'always') return true;
+            if (a.depends.startsWith('field:')) return isFieldTruthy(scriptId, a.depends.slice(6));
+            return true;
+        })
+        .map(a =>
+            `<button class="btn btn--secondary" id="${scriptId}-pa-${a.id}" onclick="runPostAction('${service}', '${script}', '${a.id}')">${escHtml(a.label)}</button>`
+        ).join('');
+
     const actions = document.createElement('div');
     actions.className = 'table-actions';
-    actions.innerHTML = `<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>`;
+    actions.innerHTML = `${postBtns}<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>`;
     el.appendChild(actions);
+}
+
+function runPostAction(service, script, actionId) {
+    const layout = getScriptLayout(service, script) || {};
+    const action = (layout.postActions || []).find(a => a.id === actionId);
+    if (!action) return;
+
+    const scriptId = `${service}-${script}`;
+    const btn = document.getElementById(`${scriptId}-pa-${actionId}`);
+    const origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ ...'; }
+
+    const tbody = document.querySelector(`#${scriptId}-report tbody`);
+    if (!tbody) {
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
+        return;
+    }
+
+    const exclude = action.excludeStatus || [];
+    const contains = action.statusContains || [];
+    const col = action.statusColumn != null ? action.statusColumn : 1;
+    const sites = [];
+    for (const row of tbody.rows) {
+        if (!row.cells.length) continue;
+        const site = row.cells[0].textContent.trim();
+        if (!site) continue;
+        const status = row.cells[col] ? row.cells[col].textContent.trim() : '';
+        if (exclude.includes(status)) continue;
+        if (contains.length && !contains.some(s => status.includes(s))) continue;
+        if (!sites.includes(site)) sites.push(site);
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = origText; }
+
+    if (!sites.length) {
+        showToast('Нет сайтов для переотправки', 'error');
+        return;
+    }
+
+    navigator.clipboard.writeText(sites.join('\n'));
+    showToast(`Скопировано ${sites.length} сайтов для переотправки`);
 }
 
 function escHtml(str) {

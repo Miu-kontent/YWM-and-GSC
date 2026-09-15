@@ -150,8 +150,8 @@ def main():
         hosts = all_hosts
 
     def _is_mirror(h):
-        mm = h.get("main_mirror") or {}
-        return bool(mm.get("host_id") or mm.get("unicode_host_url"))
+        mm = h.get("main_mirror")
+        return bool(mm)
 
     skipped_mirrors = [h for h in hosts if _is_mirror(h)]
     if skipped_mirrors:

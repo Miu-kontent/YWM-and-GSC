@@ -152,12 +152,10 @@ def main():
 
     if not metric_id:
         print('⚠️  Для запуска скрипта не хватает данных: metric_id')
-        print('ℹ️  Получите номер счётчика кнопкой "Получить" на вкладке Яндекс → Ключи')
         return
 
     if not token:
         print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
-        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
         return
 
     script_data = load_script_data()
@@ -183,7 +181,6 @@ def main():
                 browser = p.chromium.connect_over_cdp(CDP_URL)
             except Exception:
                 print('⚠️  Браузер не запущен или отключён порт 9229.')
-                print('ℹ️  Запустите браузер кнопкой "🌐 Браузер (порт 9229)" на вкладке Яндекс и повторите.')
                 return
 
             if not browser.contexts:
@@ -194,11 +191,10 @@ def main():
             page = browser.contexts[0].new_page()
             page.goto(SETTINGS_URL.format(metric_id=metric_id), wait_until='domcontentloaded', timeout=60000)
 
-            print('🔍 Ищу настройки счётчика...')
             frame = find_settings_frame(page)
             wait_start = time.time()
             if frame is None:
-                print('🔐 Если браузер не авторизован — авторизуйтесь в Яндекс (может потребоваться вход в аккаунт)...')
+                print('🔐 Может потребоваться вход в аккаунт...')
             while frame is None and (time.time() - wait_start) < AUTH_TIMEOUT:
                 time.sleep(5)
                 frame = find_settings_frame(page)
@@ -208,8 +204,6 @@ def main():
                 page.close()
                 browser.close()
                 return
-
-            print('✅ Настройки счётчика загружены')
 
             states = frame.evaluate(SCAN_JS)
             states_by_domain = {s['domain']: s for s in states}
@@ -245,7 +239,6 @@ def main():
 
                 if status == 'ok':
                     pre_ok += 1
-                    print('   ⭐ Уже привязан ранее')
                     continue
 
                 if status in ('init', 'deleted'):
@@ -260,10 +253,8 @@ def main():
                         continue
                     if final == 'ok':
                         done += 1
-                        print('   ✅ Статус: привязан')
                     else:
                         pending += 1
-                        print('   ⚠️ Запрос отправлен, ждёт подтверждения')
                     continue
 
                 if status == 'need-webmaster-confirm':
@@ -275,7 +266,6 @@ def main():
                     if not ok:
                         failed[domain] = 'отмена привязки не прошла'
                         continue
-                    print('   ℹ️ Отменено, повторная привязка...')
                     ok_click = frame.evaluate(CLICK_JS, [domain, 'repeat'])
                     if not ok_click:
                         failed[domain] = 'не найдена кнопка повторной привязки'
@@ -286,14 +276,11 @@ def main():
                         continue
                     if final == 'ok':
                         done += 1
-                        print('   ✅ Статус: привязан')
                     else:
                         pending += 1
-                        print('   ⚠️ Запрос отправлен, ждёт подтверждения')
 
             page.close()
 
-            print()
             print('ℹ️  Проверяю финальные статусы через API...')
             status_code, data = api_get_counter(metric_id, token)
 
@@ -324,11 +311,9 @@ def main():
                     label = f'❌ {failed[domain]}' if domain in failed else '—'
                     targets_for_table.append((domain, label))
 
-            print()
             for domain, label in targets_for_table:
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, label]}, ensure_ascii=False)}')
 
-            print()
             summary = {
                 "Всего для подключения": len(targets),
                 "Привязано ранее": pre_ok,

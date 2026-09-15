@@ -130,12 +130,8 @@ def get_all_hosts(user_id, headers):
     hosts = hosts_data.get('hosts', []) or []
 
     def is_mirror(h):
-        mm = h.get('main_mirror') or {}
-        return bool(mm.get('host_id') or mm.get('unicode_host_url'))
-
-    skipped = [h for h in hosts if is_mirror(h)]
-    if skipped:
-        print(f'ℹ️  Пропущено зеркал: {len(skipped)}')
+        mm = h.get('main_mirror')
+        return bool(mm)
 
     domains = []
     for h in hosts:
@@ -158,12 +154,10 @@ def main():
 
     if not token:
         print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
-        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
         return
 
     if not user_id:
         print('⚠️  Для запуска скрипта не хватает данных: user_id')
-        print('ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить')
         return
 
     script_data = load_script_data()
@@ -210,7 +204,6 @@ def main():
                 browser = p.chromium.connect_over_cdp(CDP_URL)
             except Exception:
                 print('⚠️  Браузер не запущен или отключён порт 9229.')
-                print('ℹ️  Запустите браузер кнопкой "🌐 Браузер (порт 9229)" на вкладке Яндекс и повторите.')
                 return
 
             if not browser.contexts:
@@ -251,7 +244,6 @@ def main():
                         already += 1
                         print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, "⭐ Включено ранее"]}, ensure_ascii=False)}')
                         page.close()
-                        time.sleep(0.3)
                         continue
 
                     clicked = page.evaluate(CLICK_JS)
@@ -277,13 +269,11 @@ def main():
                         pass
                     failed[domain] = f'ошибка: {str(e)[:80]}'
                     print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, f"❌ {failed[domain]}"]}, ensure_ascii=False)}')
-                    time.sleep(0.3)
 
     except Exception as e:
         print(f'❌ Критическая ошибка: {e}')
 
     finally:
-        print()
         summary = {
             "Всего сайтов": total,
             "Включено ранее": already,
@@ -292,13 +282,6 @@ def main():
         }
         print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
         print('__TABLE_DONE__:{}')
-
-        if failed:
-            print()
-            print('ℹ️  Проблемные сайты:')
-            for d, reason in failed.items():
-                print(f'ℹ️  • {d} — {reason}')
-
 
 if __name__ == '__main__':
     main()

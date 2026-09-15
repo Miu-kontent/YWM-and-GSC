@@ -21,12 +21,21 @@
                         "statusRolling": true,
                         "splitSummary": true,
                         "summaryLabel": "Сводка",
-                        "summaryPlaceholder": ["Сайтов", "Не подтверждённых", "Без правильного сайтмапа", "С неправильными сайтмапами", "Правильный сайтмап с плохим статусом"],
+                        "summaryPlaceholder": ["Сайтов", "Не подтверждённых", "Без правильного сайтмапа", "С неправильными сайтмапами", "Сайтмапы для переотправки"],
                         "columns": [
                             {"depends": "always", "label": "Сайт", "width": "220px"},
                             {"depends": "always", "label": "Права", "width": "150px"},
                             {"depends": "field:show_sitemaps", "label": "Сайтмапы", "width": "280px"},
                             {"depends": "field:show_sitemaps", "label": "Статус сайтмапов", "width": "160px"}
+                        ],
+                        "postActions": [
+                            {
+                                "id": "to_resend",
+                                "label": "↻ В переотправку",
+                                "depends": "field:show_sitemaps",
+                                "statusColumn": 3,
+                                "statusContains": ["⏳ В обработке", "❌"]
+                            }
                         ]
                     }
                 }
@@ -119,18 +128,66 @@
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Добавление sitemap для каждого поддомена в GSC",
-                    "script": null,
+                    "description": "Добавление sitemap для сайтов аккаунта (sitemaps.submit) + проверка состояния. Пусто в links = все сайты",
+                    "script": "gsc_add_sitemap",
                     "type": "api",
-                    "fields": ["gsc_subdomains", "gsc_sitemap_path"]
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты (по одному на строку, пусто = все)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты добавления sitemap",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Сайтмап", "width": "270px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Путь сайтмапа", "depends": "always"},
+                            {"key": "Успешно", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ],
+                        "postActions": [
+                            {
+                                "id": "to_resend",
+                                "label": "↻ В переотправку",
+                                "statusColumn": 2,
+                                "excludeStatus": [
+                                    "✅ Успешно",
+                                    "✅ Добавлен",
+                                    "⭐ Добавлен ранее",
+                                    "❌ Не добавлен в GSC",
+                                    "❌ Не подтверждён"
+                                ]
+                            }
+                        ]
+                    }
                 },
                 {
                     "id": "resend",
                     "name": "Переотправка",
-                    "description": "Перезапрос sitemap (планируется)",
-                    "script": null,
+                    "description": "Перезапрос sitemap. Скрипт пока не написан — кнопка «В переотправку» копирует список в буфер",
+                    "script": "gsc_resend_sitemap",
                     "type": "api",
-                    "fields": []
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (по одному на строку)"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты переотправки",
+                        "summaryPlaceholder": ["Сайтов", "Отправлено", "Ошибок"],
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ]
+                    }
                 },
                 {
                     "id": "delete",

@@ -100,8 +100,6 @@ def main():
         print(f"⚠️  {auth_info}")
         return
 
-    print(f"ℹ️  Аккаунт: {auth_info}")
-
     try:
         sites_res = webmasters.sites().list().execute()
     except Exception as e:

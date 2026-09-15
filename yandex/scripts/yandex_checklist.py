@@ -329,8 +329,8 @@ def get_hosts_map(user_id, headers):
         if h.get('verified') is False:
             skipped_unverified += 1
             continue
-        mm = h.get('main_mirror') or {}
-        if mm.get('host_id') or mm.get('unicode_host_url'):
+        mm = h.get('main_mirror')
+        if mm:
             skipped_mirrors += 1
             continue
         h_url = h.get('ascii_host_url', '') or h.get('unicode_host_url', '')

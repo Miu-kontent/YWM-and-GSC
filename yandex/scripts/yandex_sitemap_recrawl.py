@@ -85,8 +85,8 @@ def api_request(method, url, headers, params=None, json_body=None, retries=3, ti
 
 
 def is_mirror(h):
-    mm = h.get('main_mirror') or {}
-    return bool(mm.get('host_id') or mm.get('unicode_host_url'))
+    mm = h.get('main_mirror')
+    return bool(mm)
 
 
 def get_recrawl_limits(user_id, host_id, headers):

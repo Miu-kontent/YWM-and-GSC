@@ -154,8 +154,8 @@ def get_all_hosts(user_id, headers):
     hosts = hosts_data.get('hosts', []) or []
 
     def is_mirror(h):
-        mm = h.get('main_mirror') or {}
-        return bool(mm.get('host_id') or mm.get('unicode_host_url'))
+        mm = h.get('main_mirror')
+        return bool(mm)
 
     skipped = [h for h in hosts if is_mirror(h)]
     if skipped:

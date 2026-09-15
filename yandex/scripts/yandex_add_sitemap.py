@@ -50,8 +50,8 @@ def normalize_host(url):
 
 
 def is_mirror(h):
-    mm = h.get('main_mirror') or {}
-    return bool(mm.get('host_id') or mm.get('unicode_host_url'))
+    mm = h.get('main_mirror')
+    return bool(mm)
 
 
 def api_request(method, url, headers, json_body=None, retries=3, timeout=10):
@@ -85,13 +85,11 @@ def main():
     token = config.get('oauth_token')
     if not token:
         print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
-        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
         return
 
     user_id = config.get('user_id')
     if not user_id:
         print('⚠️  Для запуска скрипта не хватает данных: user_id')
-        print('ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить')
         return
 
     raw_sitemap = config.get('sitemap_path', '')
@@ -104,7 +102,6 @@ def main():
 
     if not sitemap_path:
         print('⚠️  Для запуска скрипта не хватает данных: sitemap_path')
-        print('ℹ️  Укажите путь сайтмапа на вкладке Яндекс → Ключи → Параметры')
         return
 
     links_raw = script_data.get('links', '')
@@ -129,7 +126,6 @@ def main():
     print(f'ℹ️  user_id: {user_id}')
     print(f'ℹ️  Путь сайтмапа: {sitemap_path}')
 
-    print(f'ℹ️  Получаю список сайтов из вебмастера...')
     status, hosts_data, err = api_request(
         'GET',
         f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts',
@@ -171,13 +167,16 @@ def main():
     added_count = 0
     already_count = 0
     error_count = 0
+    total = len(sites)
+    processed = 0
 
     for i, site in enumerate(sites, 1):
+        processed += 1
+        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
         hostname = normalize_host(site)
         sitemap_url = f'https://{hostname}{sitemap_path}'
 
         print(f'🔄 [{i}/{len(sites)}] {site}')
-        print(f'   {sitemap_url}')
 
         host_id = hosts_index.get(hostname)
         if not host_id:
@@ -215,7 +214,6 @@ def main():
             error_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, sitemap_url, f"❌ {error_code}"]}, ensure_ascii=False)}')
 
-    print()
     summary = {
         "Всего": len(sites),
         "Добавлено": added_count,
