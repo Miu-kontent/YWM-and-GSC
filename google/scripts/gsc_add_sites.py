@@ -50,7 +50,7 @@ def to_site_url(raw):
     return f"https://{host}/" if host else ''
 
 
-def add_site(webmasters, site_url):
+def add_site(webmasters, site_url, progress):
     """Возвращает (ok, err). При квоте — ретраи 3×30 сек (как в легаси)."""
     last_err = None
     for attempt in range(1, QUOTA_RETRIES + 1):
@@ -65,7 +65,7 @@ def add_site(webmasters, site_url):
             except Exception:
                 is_quota = False
             if is_quota and attempt < QUOTA_RETRIES:
-                print(f"⏳ Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES})", flush=True)
+                print(f"⏳  Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES}) | Обработка сайтов - {progress}", flush=True)
                 time.sleep(QUOTA_WAIT)
                 continue
             break
@@ -124,7 +124,7 @@ def main():
                 confirmed += 1
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, f"⭐ Подтверждён"]}, ensure_ascii=False)}')
         else:
-            ok, err = add_site(webmasters, site_url)
+            ok, err = add_site(webmasters, site_url, f"{processed}/{total} ({round(processed / total * 100)}%)")
             if ok:
                 added += 1
                 print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "✅ Добавлен"]}, ensure_ascii=False)}')
