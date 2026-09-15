@@ -150,7 +150,7 @@ const SCRIPT_REQUIREMENTS = {
         yandex_metrika_test:        ['oauth_token']
     },
     google: {
-        gsc_export:             ['active_account'],
+        gsc_export:             { always: ['active_account'], ifField: { show_sitemaps: ['sitemap_path'] } },
         gsc_add_sites:          ['active_account', 'links'],
         gsc_export_test:        ['active_account']
     }
@@ -182,7 +182,7 @@ function getRequiredLabel(key, service, script) {
 function validateScriptInputs(service, script) {
     const req = (SCRIPT_REQUIREMENTS[service] || {})[script];
     if (!req) return [];
-    const spec = Array.isArray(req) ? { always: req, ifLinks: [] } : req;
+    const spec = Array.isArray(req) ? { always: req, ifLinks: [], ifField: {} } : req;
     const configKeys = serviceFields[service] || [];
     const scriptId = `${service}-${script}`;
     const missing = [];
@@ -198,6 +198,9 @@ function validateScriptInputs(service, script) {
     if (getInputValue(`${scriptId}-links`).trim()) {
         (spec.ifLinks || []).forEach(check);
     }
+    (Object.entries(spec.ifField || {}))
+        .filter(([field]) => isFieldTruthy(scriptId, field))
+        .forEach(([, keys]) => keys.forEach(check));
     return missing;
 }
 

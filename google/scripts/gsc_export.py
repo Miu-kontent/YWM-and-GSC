@@ -1,21 +1,3 @@
-"""
-gsc_export.py — выгрузка сайтов Google Search Console.
-
-Основной запрос — sites.list (права). При включённом чекбоксе «Сайтмапы» для
-каждого ПОДТВЕРЖДЁННОГО сайта дополнительно sitemaps.list.
-
-⚠️ ВАЖНО: для неподтверждённого сайта любые запросы вернут 403, поэтому
-sitemaps.list для них НЕ вызывается (в таблице — прочерки).
-
-Входные данные (google/arrays/gsc_export.json):
-    links           — сайты для фильтрации. Пусто = все сайты
-    show_sitemaps   — boolean, включать сайтмапы
-
-Сводка (динамические ключи — без summaryRows в реестре):
-    Сайтов, Не подтверждённых,
-    Без правильного сайтмапа / С неправильными сайтмапами /
-    Правильный сайтмап с плохим статусом (только при show_sitemaps)
-"""
 import json
 import os
 import sys
@@ -24,13 +6,11 @@ from urllib.parse import urlparse
 import gsc_client
 
 PERMISSION_LABELS = {
-    "siteOwner": "🟢 Владелец",
-    "siteFullUser": "🔵 Полный доступ",
-    "siteRestrictedUser": "🟡 Ограниченный доступ",
-    "siteUnverifiedUser": "⚪ Не подтверждён",
+    "siteOwner": "✅ Владелец",
+    "siteFullUser": "ℹ️ Полный доступ",
+    "siteRestrictedUser": "⚠️ Ограниченный доступ",
+    "siteUnverifiedUser": "❌ Не подтверждён",
 }
-
-DEFAULT_SITEMAP_PATH = "/sitemap/"
 
 
 def load_data():
@@ -122,7 +102,12 @@ def main():
     print()
 
     config = gsc_client.load_config()
-    sitemap_path = str(config.get('sitemap_path') or DEFAULT_SITEMAP_PATH).strip()
+    sitemap_path = str(config.get('sitemap_path') or '').strip()
+    if show_sitemaps and not sitemap_path:
+        print()
+        print("❌ Для выгрузки сайтмапов нужен sitemap_path в настройках Google")
+        print("ℹ️  Укажите 'Путь сайтмапа' на вкладке Google (например /sitemap/)")
+        return
     if not sitemap_path.startswith('/'):
         sitemap_path = '/' + sitemap_path
 
