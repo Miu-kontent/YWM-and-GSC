@@ -31,7 +31,7 @@
                         "postActions": [
                             {
                                 "id": "to_resend",
-                                "label": "↻ В переотправку",
+                                "label": "↻ Копировать сайты для переотправки",
                                 "depends": "field:show_sitemaps",
                                 "statusColumn": 3,
                                 "statusContains": ["⏳ В обработке", "❌"]
@@ -149,12 +149,12 @@
                             {"key": "Сайтов", "depends": "always"},
                             {"key": "Путь сайтмапа", "depends": "always"},
                             {"key": "Успешно", "depends": "always"},
-                            {"key": "Ошибок", "depends": "always"}
+                            {"key": "Для переотправки", "depends": "always"}
                         ],
                         "postActions": [
                             {
                                 "id": "to_resend",
-                                "label": "↻ В переотправку",
+                                "label": "↻ Копировать сайты для переотправки",
                                 "statusColumn": 2,
                                 "excludeStatus": [
                                     "✅ Успешно",
@@ -170,11 +170,15 @@
                 {
                     "id": "resend",
                     "name": "Переотправка",
-                    "description": "Перезапрос sitemap. Скрипт пока не написан — кнопка «В переотправку» копирует список в буфер",
+                    "description": "Переотправка sitemap: обычный (submit) или буквальный (удаление + submit)",
                     "script": "gsc_resend_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (по одному на строку, пусто = все)"},
+                        {"name": "mode", "type": "select", "label": "Способ переотправки", "options": [
+                            {"value": "submit", "label": "Обычный (только Submit)"},
+                            {"value": "delete_and_submit", "label": "Буквальный (Удаление + Submit)"}
+                        ]}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -182,10 +186,16 @@
                         "statusRolling": true,
                         "splitSummary": true,
                         "summaryLabel": "Результаты переотправки",
-                        "summaryPlaceholder": ["Сайтов", "Отправлено", "Ошибок"],
                         "columns": [
-                            {"depends": "always", "label": "Сайт", "width": "300px"},
-                            {"depends": "always", "label": "Статус", "width": "250px"}
+                            {"depends": "always", "label": "Сайт", "width": "280px"},
+                            {"depends": "always", "label": "Сайтмап", "width": "270px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Режим", "depends": "always"},
+                            {"key": "Успешно", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
                         ]
                     }
                 },

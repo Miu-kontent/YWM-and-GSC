@@ -18,7 +18,7 @@ sitemap_path — обязательный ключ в google/config.json
 (в GUI: Ключи Google → Путь сайтмапа).
 
 Формат таблицы: Сайт | Сайтмап | Статус.
-Сводка: Сайтов | Путь сайтмапа | Успешно | Ошибок.
+Сводка: Сайтов | Путь сайтмапа | Успешно | Для переотправки.
 """
 import json
 import os
@@ -217,7 +217,7 @@ def main():
         "Сайтов": total,
         "Путь сайтмапа": sitemap_path,
         "Успешно": success,
-        "Ошибок": errors + pending,
+        "Для переотправки": errors + pending,
     }
     print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
     print('__TABLE_DONE__:{}')
