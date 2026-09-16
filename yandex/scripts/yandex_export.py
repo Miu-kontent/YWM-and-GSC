@@ -1,14 +1,16 @@
 import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import requests
 
-
-BASE_URL = "https://api.webmaster.yandex.net/v4"
-
-
 from yandex_client import load_config
+
+MAX_WORKERS = 6
+BASE_URL = "https://api.webmaster.yandex.net/v4"
 
 
 def load_script_data():
@@ -162,26 +164,27 @@ def main():
     need_problems = "problems" in export_groups
     print(f"ℹ️  Группы: {'Статус' if need_status else ''}{', ' if need_status and (need_sitemaps or need_problems) else ''}{'Сайтмапы' if need_sitemaps else ''}{', ' if need_sitemaps and need_problems else ''}{'Проверки' if need_problems else ''}")
 
-    unverified_count = 0
-    not_ok_count = 0
-    with_recommendations_count = 0
-    with_errors_count = 0
-    mirrors_count = 0
-    without_correct_sitemap_count = 0
-    with_wrong_sitemaps_count = 0
-    sitemaps_not_ok_count = 0
-
-    processed = 0
-    for host in hosts:
-        processed += 1
+    def process_host(idx, host):
         hid = host.get("host_id", "")
         h_url = host.get("unicode_host_url", "")
         h_verified = host.get("verified", False)
 
         site = extract_site_url(h_url)
 
+        stats = {
+            "unverified": 0,
+            "not_ok": 0,
+            "mirrors": 0,
+            "without_correct_sitemap": 0,
+            "with_wrong_sitemaps": 0,
+            "sitemaps_not_ok": 0,
+            "with_recommendations": 0,
+            "with_errors": 0,
+            "errs": [],
+        }
+
         if not h_verified:
-            unverified_count += 1
+            stats["unverified"] = 1
 
         verified_str = "✅" if h_verified else "❌"
 
@@ -191,7 +194,7 @@ def main():
         else:
             mirror_cell = mirrors_of.get(hid, ["-"])
         if own_main.get("unicode_host_url") or mirrors_of.get(hid):
-            mirrors_count += 1
+            stats["mirrors"] = 1
 
         cells = [site, verified_str]
 
@@ -201,12 +204,12 @@ def main():
                 details, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}", headers)
                 data_status = "-"
                 if err:
-                    print(f"⚠️  Ошибка получения статуса сайта {hid}: {err}")
+                    stats["errs"].append(f"⚠️  Ошибка получения статуса сайта {hid}: {err}")
                     data_status = "NONE"
                 else:
                     data_status = details.get("host_data_status", "-")
                     if data_status != "OK":
-                        not_ok_count += 1
+                        stats["not_ok"] = 1
             else:
                 data_status = "—"
             cells.append(data_status)
@@ -220,7 +223,7 @@ def main():
                 sitemaps_list = []
                 sitemap_ids_in_api = set()
                 if err:
-                    print(f"⚠️  Ошибка получения сайтмапов {hid}: {err}")
+                    stats["errs"].append(f"⚠️  Ошибка получения сайтмапов {hid}: {err}")
                     sitemaps_cell = "NONE"
                 else:
                     for s in sitemaps_data.get("sitemaps", []):
@@ -235,7 +238,7 @@ def main():
                     user_sitemaps_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/user-added-sitemaps", headers)
                     pending_sitemaps = []
                     if err:
-                        print(f"⚠️  Ошибка получения добавленных сайтмапов {hid}: {err}")
+                        stats["errs"].append(f"⚠️  Ошибка получения добавленных сайтмапов {hid}: {err}")
                         sitemaps_cell = "NONE"
                     else:
                         for us in user_sitemaps_data.get("sitemaps", []):
@@ -258,7 +261,7 @@ def main():
                                 has_correct = True
                                 break
                         if not has_correct and correct_sitemaps:
-                            without_correct_sitemap_count += 1
+                            stats["without_correct_sitemap"] = 1
 
                         has_wrong = False
                         for s in all_sitemaps:
@@ -266,13 +269,13 @@ def main():
                                 has_wrong = True
                                 break
                         if has_wrong:
-                            with_wrong_sitemaps_count += 1
+                            stats["with_wrong_sitemaps"] = 1
 
                         has_sitemap_not_ok = any(
                             not s.get("pending") and s["errors_count"] > 0 for s in all_sitemaps
                         )
                         if has_sitemap_not_ok:
-                            sitemaps_not_ok_count += 1
+                            stats["sitemaps_not_ok"] = 1
 
                         sitemap_cells = []
                         status_cells = []
@@ -299,7 +302,7 @@ def main():
             if h_verified:
                 problems_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/diagnostics", headers, timeout=15)
                 if err:
-                    print(f"⚠️  Ошибка получения проверок {hid}: {err}")
+                    stats["errs"].append(f"⚠️  Ошибка получения проверок {hid}: {err}")
                 else:
                     problems = problems_data.get("problems", {}) if isinstance(problems_data, dict) else {}
 
@@ -315,9 +318,9 @@ def main():
                             recommendations += 1
 
                     if recommendations > 0:
-                        with_recommendations_count += 1
+                        stats["with_recommendations"] = 1
                     if errors > 0:
-                        with_errors_count += 1
+                        stats["with_errors"] = 1
 
                     rec_cell = recommendations
                     err_cell = errors
@@ -327,8 +330,47 @@ def main():
 
             cells += [rec_cell, err_cell]
 
-        print(f"__TABLE_ROW__:{json.dumps({'cells': cells}, ensure_ascii=False)}")
-        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
+        return idx, cells, stats
+
+    unverified_count = 0
+    not_ok_count = 0
+    with_recommendations_count = 0
+    with_errors_count = 0
+    mirrors_count = 0
+    without_correct_sitemap_count = 0
+    with_wrong_sitemaps_count = 0
+    sitemaps_not_ok_count = 0
+
+    lock = threading.Lock()
+    processed = 0
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(process_host, idx, host): idx
+            for idx, host in enumerate(hosts)
+        }
+        results = [None] * total
+        next_idx = 0
+        for future in as_completed(futures):
+            idx, cells, stats = future.result()
+            results[idx] = (cells, stats)
+            while next_idx < total and results[next_idx] is not None:
+                cells, stats = results[next_idx]
+                next_idx += 1
+                with lock:
+                    processed += 1
+                    unverified_count += stats["unverified"]
+                    not_ok_count += stats["not_ok"]
+                    mirrors_count += stats["mirrors"]
+                    without_correct_sitemap_count += stats["without_correct_sitemap"]
+                    with_wrong_sitemaps_count += stats["with_wrong_sitemaps"]
+                    sitemaps_not_ok_count += stats["sitemaps_not_ok"]
+                    with_recommendations_count += stats["with_recommendations"]
+                    with_errors_count += stats["with_errors"]
+                    print(f"__TABLE_ROW__:{json.dumps({'cells': cells}, ensure_ascii=False)}")
+                    print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
+                    for msg in stats["errs"]:
+                        print(msg)
 
     summary_data = {
         "Всего сайтов": total,
@@ -336,14 +378,14 @@ def main():
         "С зеркалами": mirrors_count,
     }
     if need_status:
-        summary_data["Не OK (host_data_status)"] = not_ok_count
+        summary_data["Не индексируются"] = not_ok_count
     if need_problems:
         summary_data["С рекомендациями"] = with_recommendations_count
         summary_data["С ошибками"] = with_errors_count
     if need_sitemaps:
         summary_data["Без правильного сайтмапа"] = without_correct_sitemap_count
         summary_data["С неправильными сайтмапами"] = with_wrong_sitemaps_count
-        summary_data["Сайтмапы не в OK"] = sitemaps_not_ok_count
+        summary_data["Сайтмапы с плохим статусом"] = sitemaps_not_ok_count
 
     print(f"__SUMMARY__:{json.dumps(summary_data, ensure_ascii=False)}")
     print("__TABLE_DONE__:{}")

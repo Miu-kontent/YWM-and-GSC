@@ -7,12 +7,12 @@
             "subcategories": [
                 {
                     "id": "gsc_export",
-                    "name": "Выгрузка по сайтам",
-                    "description": "Сайты + права (sites.list), при чекбоксе — сайтмапы (sitemaps.list) и их статусы",
+                    "name": "Выгрузка из GSC",
+                    "description": "Выгрузка: сайты, статусы, права, сайтмапы",
                     "script": "gsc_export",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (по одному на строку, пусто = все)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для выгрузки(Пусто = все сайты из GSC)"},
                         {"name": "show_sitemaps", "type": "checkbox", "label": "Сайтмапы"}
                     ],
                     "layout": {
@@ -44,16 +44,16 @@
         {
             "id": "sites",
             "name": "Сайты",
-            "description": "Управление сайтами: добавление, подтверждение, удаление",
+            "description": "Управление сайтамив GSC",
             "subcategories": [
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Массовое добавление сайтов в Google Search Console через API",
+                    "description": "Добавление сайтов",
                     "script": "gsc_add_sites",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (по одному на строку)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Пусто = все сайты из GSC)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -76,11 +76,11 @@
                 {
                     "id": "verify",
                     "name": "Подтверждение",
-                    "description": "Подтверждение прав на сайты через Site Verification API (META → FILE)",
+                    "description": "Подтверждение прав",
                     "script": "gsc_verify",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (по одному на строку, пусто = все)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения(Пусто = все сайты из GSC)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -103,7 +103,7 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление конкретных сайтов через UI",
+                    "description": "Удаление сайтов",
                     "script": null,
                     "type": "browser",
                     "port": 9227,
@@ -112,7 +112,7 @@
                 {
                     "id": "delete_unverified",
                     "name": "Удаление неподтверждённых",
-                    "description": "Удаление только неподтверждённых сайтов",
+                    "description": "Удаление неподтверждённых сайтов",
                     "script": null,
                     "type": "browser",
                     "port": 9227,
@@ -123,16 +123,16 @@
         {
             "id": "sitemaps",
             "name": "Сайтмапы",
-            "description": "Управление sitemap в Google Search Console",
+            "description": "Управление sitemap",
             "subcategories": [
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Добавление sitemap для сайтов аккаунта (sitemaps.submit) + проверка состояния. Пусто в links = все сайты",
+                    "description": "Добавление sitemap",
                     "script": "gsc_add_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (по одному на строку, пусто = все)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Пусто = все сайты из GSC)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -170,14 +170,14 @@
                 {
                     "id": "resend",
                     "name": "Переотправка",
-                    "description": "Переотправка sitemap: обычный (submit) или буквальный (удаление + submit)",
+                    "description": "Переотправка sitemap",
                     "script": "gsc_resend_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (по одному на строку, пусто = все)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (Выбрать режим ниже)"},
                         {"name": "mode", "type": "select", "label": "Способ переотправки", "options": [
-                            {"value": "submit", "label": "Обычный (только Submit)"},
-                            {"value": "delete_and_submit", "label": "Буквальный (Удаление + Submit)"}
+                            {"value": "submit", "label": "Переотправка"},
+                            {"value": "delete_and_submit", "label": "Удаление + добавление"}
                         ]}
                     ],
                     "layout": {
@@ -202,7 +202,7 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление sitemap из GSC (планируется)",
+                    "description": "Удаление sitemap",
                     "script": null,
                     "type": "api",
                     "fields": []
@@ -216,12 +216,12 @@
             "subcategories": [
                 {
                     "id": "gsc_export_test",
-                    "name": "Экспорт данных Google (тест)",
-                    "description": "Тестовая выгрузка всех методов GSC: сайты, сайтмапы, аналитика, проверка URL. Пусто в links = первые 3 сайта",
+                    "name": "Экспорт GSC (тест)",
+                    "description": "Google Search Console API",
                     "script": "gsc_export_test",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для анализа (по одному на строку, пусто = первые 3)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для анализа (Пусто = все сайты из GSC, макс 3)"},
                         {"name": "date_from", "type": "date", "label": "Дата от"},
                         {"name": "date_to", "type": "date", "label": "Дата до"}
                     ]
@@ -229,11 +229,11 @@
                 {
                     "id": "gsc_sitemap_test",
                     "name": "Проверка сайтмапов (тест)",
-                    "description": "Сайтмапы из sitemaps.list: путь, статус, errors, warnings и contents по каждому. Пусто = все сайты",
+                    "description": "Статусы сайтмапов",
                     "script": "gsc_sitemap_test",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для анализа (по одному на строку, пусто = все)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для анализа (Пусто = все сайты из GSC)"}
                     ],
                     "layout": {
                         "hideSave": true,

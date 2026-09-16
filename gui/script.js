@@ -527,7 +527,7 @@ function renderCategoryNav(service, registry) {
             cat.subcategories.forEach(sub => {
                 const item = document.createElement('div');
                 item.className = 'subcategory-item' + (sub.script ? '' : ' disabled');
-                item.setAttribute('data-tooltip', sub.description);
+                
 
                 const scriptBadge = sub.script
                     ? `<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px;">${sub.type === 'api' ? 'API' : 'Browser'}</span>`
@@ -596,7 +596,7 @@ function positionTooltips(container) {
 
 function resolveField(field) {
     if (typeof field === 'string') {
-        return { name: field, type: 'textarea', label: `${field} (по одному на строку, с или без протокола)` };
+        return { name: field, type: 'textarea', label: field };
     }
     return {
         name: field.name,
@@ -653,7 +653,7 @@ function renderFieldInput(field, scriptId, savedData) {
             else if (val && typeof val === 'object') textVal = JSON.stringify(val, null, 2);
             else textVal = val;
             return `<div class="form-group">
-                <label class="form-label">${f.label} (по одному на строку, с или без протокола)</label>
+                <label class="form-label">${f.label}</label>
                 <textarea class="form-control" id="${id}" placeholder="Введите ${f.name}...">${escHtml(textVal)}</textarea>
             </div>`;
     }
@@ -777,11 +777,6 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
     const scriptId = `${service}-${scriptName}`;
     const fields = subcategory.fields || [];
     const savedData = window._scriptsData[service][scriptName] || {};
-    const scriptInfo = window._scriptsLists[service].find(s => s.name === scriptName);
-    const badgeType = scriptInfo ? (scriptInfo.type === 'py' ? 'Python' : 'JS') : (subcategory.type === 'api' ? 'API' : 'JS');
-    const badgeClass = scriptInfo
-        ? (scriptInfo.type === 'py' ? 'badge--py' : 'badge--js')
-        : (subcategory.type === 'api' ? 'badge--api' : 'badge--js');
     const layout = getScriptLayout(service, scriptName) || {};
     const selection = getSavedSelection(service, scriptName, layout);
 
@@ -843,8 +838,9 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
         <div class="card script-panel" id="${scriptId}-card">
             <div class="card__header" style="justify-content: space-between;">
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <span>${scriptName}</span>
-                    <span class="badge ${badgeClass}" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${badgeType}</span>
+                    <span>${subcategory.name || scriptName}</span>
+                    <span class="badge badge--api" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${subcategory.type === 'api' ? 'API' : 'Browser'}</span>
+                    <span style="font-size:11px; color:var(--text-muted);">(${scriptName})</span>
                 </div>
             </div>
             <div class="script-body" id="${scriptId}-body">

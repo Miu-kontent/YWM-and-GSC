@@ -8,11 +8,11 @@
                 {
                     "id": "yandex_export",
                     "name": "Выгрузка из Вебмастера",
-                    "description": "Выгрузка данных по сайтам: статусы, сайтмапы, проблемы",
+                    "description": "Выгрузка: сайты, статусы, сайтмапы, проблемы",
                     "script": "yandex_export",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Ссылки"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для выгрузки(Пусто = все сайты из Вебмастера)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -54,7 +54,7 @@
                     "script": "yandex_metrika_export",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для фильтрации"}
+                        {"name": "links", "type": "textarea", "label": "Сайты (Пусто = все сайты из Метрики)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -86,11 +86,11 @@
                 {
                     "id": "add",
                     "name": "Добавление",
-                    "description": "Добавление нового сайта в Вебмастер",
+                    "description": "Добавление сайтов",
                     "script": "yandex_add_sites",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -112,12 +112,12 @@
                 },
                 {
                     "id": "verify",
-                    "name": "Права",
-                    "description": "Подтверждение права собственности на сайт",
+                    "name": "Подтверждение",
+                    "description": "Подтверждение прав",
                     "script": "yandex_verify",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения (Пусто = все сайты из Вебмастера)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -147,7 +147,7 @@
                     "script": "yandex_sites_to_delete",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для удаления"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -170,13 +170,13 @@
                 {
                     "id": "regions",
                     "name": "Регионы",
-                    "description": "Добавление региона поддоменам (пустые списки = просто проверка)",
+                    "description": "Добавление региона",
                     "script": "yandex_region_add",
                     "type": "browser",
                     "port": 9229,
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты"},
-                        {"name": "city", "type": "textarea", "label": "Города"}
+                        {"name": "links", "type": "textarea", "label": "Сайты (Пусто = проверка)"},
+                        {"name": "city", "type": "textarea", "label": "Города (Пусто = проверка)"}
                     ],
 "layout": {
                         "hideSave": true,
@@ -197,12 +197,12 @@
                 {
                     "id": "checklist",
                     "name": "Рекомендации и ошибки",
-                    "description": "Проверка ошибок и рекомендаций (API диагностика + Playwright). Пустые сайты = все хосты",
+                    "description": "Проверка ошибок и рекомендаций",
                     "script": "yandex_checklist",
                     "type": "browser",
                     "port": 9229,
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (пусто = все)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для проверки (Пусто = все сайты из Вебмастера)"},
                         {"name": "recommendations", "type": "checkbox", "label": "Рекомендации"},
                         {"name": "errors", "type": "checkbox", "label": "Ошибки"}
                     ],
@@ -241,7 +241,7 @@
                     "script": "yandex_add_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления сайтмапа"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Пусто = все сайты из Вебмастера)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -265,11 +265,11 @@
                 {
                     "id": "resend",
                     "name": "Переотправка",
-                    "description": "Перезапрос sitemap для приоритетного переобхода (API)",
+                    "description": "Переобход sitemap",
                     "script": "yandex_sitemap_recrawl",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (пусто = все)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для переобхода (Пусто = все сайты из Вебмастера)"},
                         {"name": "show_limits", "type": "checkbox", "label": "Выводить лимиты переобхода"}
                     ],
                     "layout": {
@@ -297,12 +297,12 @@
                 {
                     "id": "delete",
                     "name": "Удаление",
-                    "description": "Удаление файлов Sitemap (API)",
+                    "description": "Удаление sitemap",
                     "script": "yandex_delete_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты (пусто = все)"},
-                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа (напр. /sitemap.xml)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления сайтмапа (Пусто = все сайты из Вебмастера)"},
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -338,7 +338,7 @@
                     "script": "yandex_metrika_add_mirrors",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления в счётчик"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -361,12 +361,12 @@
                 {
                     "id": "mirrors_bind",
                     "name": "Привязка сайтов",
-                    "description": "Привязка сайтов счётчика к Вебмастеру",
+                    "description": "Привязка сайтов к Вебмастеру",
                     "script": "yandex_metrika_bind_mirrors",
                     "type": "browser",
                     "port": 9229,
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для привязки"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для привязки (Пусто = все сайты из счетчика)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -390,12 +390,12 @@
                 {
                     "id": "add_metrics",
                     "name": "Включение обхода",
-                    "description": "Включение обхода по счётчикам",
+                    "description": "Включение тумблера обхода",
                     "script": "yandex_metrika_add_metrics",
                     "type": "browser",
                     "port": 9229,
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты"}
+                        {"name": "links", "type": "textarea", "label": "Сайты (Пусто = все сайты из Вебмастера)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -418,11 +418,11 @@
                 {
                     "id": "mirrors_delete",
                     "name": "Удаление сайтов из счетчика",
-                    "description": "Удаление лишних/ненужных сайтов из счётчика",
+                    "description": "Удаление лишних/ненужных сайтов",
                     "script": "yandex_metrika_delete_mirrors",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для обработки"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Выбрать режим ниже)"},
                         {"name": "mode", "type": "select", "label": "Режим удаления", "options": [
                             {"value": "keep", "label": "Оставить только список, остальные удалить"},
                             {"value": "delete", "label": "Удалить только указанные в списке"}
@@ -455,12 +455,12 @@
             "subcategories": [
             {
                 "id": "yandex_export_test",
-                "name": "Экспорт данных (тест)",
-                "description": "Получение всей информации через API Яндекс.Вебмастера",
+                "name": "Экспорт Вебмастера (тест)",
+                "description": "API Яндекс.Вебмастера",
                 "script": "yandex_export_test",
                 "type": "api",
                 "fields": [
-                    {"name": "links", "type": "textarea", "label": "Сайты для анализа (по одному на строку, пусто = все)"},
+                    {"name": "links", "type": "textarea", "label": "Сайты для анализа (Пусто = все сайты из Вебмастера, макс 3)"},
                     {"name": "date_from", "type": "date", "label": "Дата от"},
                     {"name": "date_to", "type": "date", "label": "Дата до"},
                     {"name": "query_indicator", "type": "select", "label": "Показатель запросов", "options": [
@@ -481,11 +481,11 @@
             {
                 "id": "sitemap_test",
                 "name": "Проверка сайтмапов (тест)",
-                "description": "Статусы сайтмапов + ошибки/страницы по каждому + PRESENT-проблемы сайта. Распараллелено (6 потоков)",
+                "description": "Статусы сайтмапов",
                 "script": "yandex_sitemap_test",
                 "type": "api",
                 "fields": [
-                    {"name": "links", "type": "textarea", "label": "Сайты для анализа (по одному на строку, пусто = все)"}
+                    {"name": "links", "type": "textarea", "label": "Сайты для анализа (Пусто = все сайты из Вебмастера)"}
                 ],
                 "layout": {
                     "hideSave": true,
@@ -493,7 +493,7 @@
                     "statusRolling": true,
                     "splitSummary": true,
                     "summaryLabel": "Сводка",
-                    "summaryPlaceholder": ["Сайтов", "Сайтмапов", "Проблем (PRESENT)", "Сайтов с ошибками сайтмапов", "Ошибок запросов"],
+                    "summaryPlaceholder": ["Сайтов", "Сайтмапов", "Проблем", "Сайтов с ошибками сайтмапов", "Ошибок запросов"],
                     "columns": [
                         {"depends": "always", "label": "Сайт", "width": "220px"},
                         {"depends": "always", "label": "Сайтмапы", "width": "300px"},
@@ -506,8 +506,8 @@
             },
             {
                 "id": "metrika_test",
-                "name": "Метрика (тест)",
-                "description": "Вывод ответа API Метрики: список счётчиков",
+                "name": "Экспорт метрики (тест)",
+                "description": "API Метрики",
                 "script": "yandex_metrika_test",
                 "type": "api",
                 "fields": []
