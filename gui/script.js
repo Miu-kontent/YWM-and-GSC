@@ -147,6 +147,7 @@ const SCRIPT_REQUIREMENTS = {
         yandex_metrika_add_metrics: ['oauth_token', 'user_id'],
         yandex_metrika_delete_mirrors: ['oauth_token', 'metric_id', 'links'],
         yandex_export_test:         ['oauth_token', 'user_id'],
+        yandex_sitemap_test:        ['oauth_token', 'user_id'],
         yandex_metrika_test:        ['oauth_token']
     },
     google: {
@@ -155,7 +156,8 @@ const SCRIPT_REQUIREMENTS = {
         gsc_verify:             ['active_account'],
         gsc_add_sitemap:        ['active_account', 'sitemap_path'],
         gsc_resend_sitemap:     ['active_account', 'sitemap_path'],
-        gsc_export_test:        ['active_account']
+        gsc_export_test:        ['active_account'],
+        gsc_sitemap_test:       ['active_account']
     }
 };
 
