@@ -364,6 +364,14 @@ class Api:
             print(f"[API] Ошибка чтения yandex/app_config.json: {e}")
         return {}
 
+    @staticmethod
+    def _normalize_yandex_account_name(login):
+        """login из Яндекс ID -> полный ник с доменом (ли <login@yandex.ru>), если не email."""
+        login = (login or "").strip()
+        if not login or "@" in login:
+            return login
+        return f"{login}@yandex.ru"
+
     def _load_yandex_accounts(self):
         data = {}
         if os.path.exists(self.yandex_accounts_path):
@@ -373,7 +381,22 @@ class Api:
                 data = loaded.get("accounts", loaded) if isinstance(loaded, dict) else {}
             except Exception as e:
                 print(f"[API] Ошибка чтения yandex/accounts.json: {e}")
-        return data
+        # миграция: ключи-логины без домена -> <login>@yandex.ru
+        migrated = {}
+        changed = False
+        for name, acc in (data or {}).items():
+            new_name = self._normalize_yandex_account_name(name)
+            migrated[new_name] = acc
+            if new_name != name:
+                changed = True
+        if changed:
+            self._save_yandex_accounts(migrated)
+            cfg = self.get_config("yandex")
+            active = (cfg.get("active_account") or "").strip()
+            if active and active not in migrated:
+                cfg["active_account"] = self._normalize_yandex_account_name(active)
+                self.save_config("yandex", cfg)
+        return migrated
 
     def _save_yandex_accounts(self, accounts):
         os.makedirs(self.yandex_dir, exist_ok=True)
@@ -474,6 +497,7 @@ class Api:
         login = (r.json().get("login", "") or "").strip()
         if not login:
             return {"success": False, "message": "Пустой login в ответе Яндекс ID"}
+        login = self._normalize_yandex_account_name(login)
 
         try:
             r2 = requests.get("https://api.webmaster.yandex.net/v4/user/", headers=headers, timeout=10)
@@ -486,15 +510,16 @@ class Api:
             return {"success": False, "message": "Пустой user_id в ответе Вебмастера"}
 
         accounts = self._load_yandex_accounts()
-        accounts[login] = {"oauth_token": token, "user_id": user_id}
+        account_name = self._normalize_yandex_account_name(login)
+        accounts[account_name] = {"oauth_token": token, "user_id": user_id}
         self._save_yandex_accounts(accounts)
 
         config = self.get_config("yandex")
-        config["active_account"] = login
+        config["active_account"] = account_name
         self.save_config("yandex", config)
 
-        return {"success": True, "account": login,
-                "log": [f"✅ Аккаунт {login} авторизован и сохранён (user_id: {user_id})"]}
+        return {"success": True, "account": account_name,
+                "log": [f"✅ Аккаунт {account_name} авторизован и сохранён (user_id: {user_id})"]}
 
     def get_yandex_accounts(self):
         accounts = self._load_yandex_accounts()
