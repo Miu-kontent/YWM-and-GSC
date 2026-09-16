@@ -49,7 +49,6 @@ YWM-and-GSC/
 │   │   └── userid.js
 │   ├── config.json             # Токены Яндекс (OAuth, User ID, Metric ID, Sitemap, Contact Path)
 │   ├── array_<script>.js       # Изолированные массивы для каждого скрипта
-│   └── loadConfig.js           # Загрузчик конфигов
 ├── google/                     # Модуль Google Search Console
 │   ├── scripts/                # JS скрипты автоматизации (6 файлов)
 │   │   ├── gsc_add_sites.js
@@ -57,10 +56,8 @@ YWM-and-GSC/
 │   │   ├── gsc_add_sitemap.js
 │   │   ├── gsc_delete_sites.js
 │   │   ├── gsc_delete_unverified.js
-│   │   └── loadGoogleConfig.js # Хелпер загрузки google/config.json
 │   ├── config.json             # Ключи Google (Client ID, Secret, Tokens, Sitemap Path, Main Resource, Redirect URI)
 │   ├── array_<script>.js       # Изолированные массивы для каждого скрипта
-│   └── loadConfig.js           # Загрузчик массивов
 ├── gui/                        # Веб-интерфейс (pywebview)
 │   ├── index.html              # Разметка (Splash, вкладки, формы, логи, таблицы)
 │   ├── style.css               # Стили (тёмная/светлая тема, CSS-переменные, универсальные компоненты)

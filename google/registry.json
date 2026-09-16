@@ -255,5 +255,5 @@
             ]
         }
     ],
-    "excludedScripts": ["loadConfig", "loadGoogleConfig"]
+    "excludedScripts": ["gsc_client"]
 }
