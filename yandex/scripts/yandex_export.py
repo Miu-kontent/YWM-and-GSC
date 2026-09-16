@@ -304,13 +304,22 @@ def main():
         err_cell = "NONE"
         if need_problems:
             if h_verified:
-                summary_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/summary", headers)
+                problems_data, err = api_get(f"{BASE_URL}/user/{user_id}/hosts/{hid}/diagnostics", headers, timeout=15)
                 if err:
                     print(f"⚠️  Ошибка получения проверок {hid}: {err}")
                 else:
-                    site_problems = summary_data.get("site_problems", {})
-                    recommendations = site_problems.get("POSSIBLE_PROBLEM", 0) + site_problems.get("RECOMMENDATION", 0)
-                    errors = site_problems.get("CRITICAL", 0) + site_problems.get("FATAL", 0)
+                    problems = problems_data.get("problems", {}) if isinstance(problems_data, dict) else {}
+
+                    recommendations = 0
+                    errors = 0
+                    for pr in problems.values():
+                        if (pr or {}).get("state") != "PRESENT":
+                            continue
+                        sev = pr.get("severity")
+                        if sev in ("FATAL", "CRITICAL"):
+                            errors += 1
+                        elif sev in ("POSSIBLE_PROBLEM", "RECOMMENDATION"):
+                            recommendations += 1
 
                     if recommendations > 0:
                         with_recommendations_count += 1
