@@ -57,16 +57,11 @@ def status_label(st):
 
 
 def contents_text(sm):
-    """Содержимое сайтмапа: 'тип: отправлено/проиндексировано' для каждого элемента contents."""
+    """Содержимое сайтмапа как в тестовой выгрузке: 'тип:submitted' через запятую (например 'web:103')."""
     contents = sm.get('contents') or []
-    parts = []
-    for c in contents:
-        if isinstance(c, dict):
-            ctype = c.get('type') or '?'
-            submitted = c.get('submitted')
-            indexed = c.get('indexed')
-            parts.append(f"{ctype}: {submitted if submitted is not None else 0}/{indexed if indexed is not None else 0}")
-    return parts
+    if not contents:
+        return '-'
+    return ', '.join(f"{c.get('type', '?')}:{c.get('submitted', '?')}" for c in contents)
 
 
 def main():
@@ -153,7 +148,7 @@ def main():
                 statuses.append(status_label(st))
                 errors.append(str(sm.get('errors')) if sm.get('errors') is not None else '-')
                 warnings.append(str(sm.get('warnings')) if sm.get('warnings') is not None else '-')
-                contents.append(contents_text(sm) or ['-'])
+                contents.append(contents_text(sm))
 
             if has_err:
                 err_sites += 1
