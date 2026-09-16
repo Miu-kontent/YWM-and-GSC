@@ -86,13 +86,11 @@ def main():
     token = config.get('oauth_token')
     if not token:
         print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
-        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
         return
 
     metric_id = config.get('metric_id')
     if not metric_id:
         print('⚠️  Для запуска скрипта не хватает данных: metric_id')
-        print('ℹ️  Получите номер счётчика кнопкой "Получить" на вкладке Яндекс → Ключи')
         return
 
     links_raw = script_data.get('links', '')
@@ -105,7 +103,6 @@ def main():
 
     if not sites and script_data.get('mode', 'keep') != 'keep':
         print('❌ В режиме "удалить только из списка" список сайтов не может быть пустым!')
-        print('ℹ️  Введите сайты в поле выше и нажмите "Запустить" ещё раз')
         return
 
     mode = script_data.get('mode', 'keep')
@@ -123,7 +120,6 @@ def main():
 
     user_keys = set(normalize_host(s) for s in sites)
 
-    print('ℹ️  Получаю зеркала счётчика...')
     status, counter_data, err = api_request('GET', f'{BASE_URL}/management/v1/counter/{metric_id}', headers)
     if err:
         print(f'⚠️  Ошибка получения данных счётчика: {err}')
@@ -135,14 +131,12 @@ def main():
 
     counter = counter_data.get('counter', {}) if isinstance(counter_data, dict) else {}
     mirrors = counter.get('mirrors', []) or []
-    main_site = counter.get('site', '')
 
     if not mirrors:
         print('ℹ️  В счётчике нет зеркал для обработки — удалять нечего')
         return
 
     print(f'ℹ️  Зеркал в счётчике: {len(mirrors)}')
-    print(f'ℹ️  Основной сайт: {main_site or "-"} (не удаляется)')
 
     kept = []
     to_delete = []
@@ -158,7 +152,6 @@ def main():
     ]
     if invalid_kept:
         print(f'ℹ️  В "оставить" есть зеркала с невалидными символами: {len(invalid_kept)}')
-        print('ℹ️  Удаление определяется только списком: такие зеркала не удаляются, если не входят в область удаления')
 
     batch_size = script_data.get('batch_size', DEFAULT_BATCH_SIZE)
     try:
@@ -168,7 +161,6 @@ def main():
 
     pending_deletions = list(to_delete)
     print(f'ℹ️  Останется: {len(kept)}, к удалению: {len(pending_deletions)}')
-    print(f'ℹ️  Партиями по {batch_size} зеркал за запрос')
 
     error_count = 0
     deleted_count = 0
@@ -224,7 +216,6 @@ def main():
     for m in kept:
         print(f'__TABLE_ROW__:{json.dumps({"cells": [mirror_site(m), "✅ Оставлен"]}, ensure_ascii=False)}')
 
-    print()
     print(f'ℹ️  Сверка с API после операции{" — удаление не завершено, повторите запуск для остатка" if stopped else ""}...')
     check_status, check_data, check_err = api_request('GET', f'{BASE_URL}/management/v1/counter/{metric_id}', headers)
     if not check_err and check_status == 200:
@@ -232,7 +223,6 @@ def main():
         check_mirrors = check_counter.get('mirrors', []) or []
         print(f'ℹ️  Зеркал после операции: {len(check_mirrors)}')
 
-    print()
     summary = {
         "Всего сайтов": len(mirrors),
         "Оставлено": kept_count,
@@ -243,7 +233,6 @@ def main():
     print('__TABLE_DONE__:{}')
 
     if stopped:
-        print()
         print(f'⚠️  Удалено {deleted_count} из {len(to_delete)}. Осталось удалить: {len(pending_deletions)}')
         print(f'ℹ️  Причина остановки: {stop_reason}')
         print('ℹ️  Запустите скрипт повторно — остаток будет удалён (список строится от текущего состояния счётчика)')
