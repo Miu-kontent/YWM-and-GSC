@@ -515,5 +515,5 @@
             ]
         }
     ],
-    "excludedScripts": ["yandex_auth", "yandex_get_token", "yandex_get_userid", "yandex_metrika_getcounter", "yandex_sites_to_delete"]
+    "excludedScripts": ["yandex_auth", "yandex_metrika_getcounter", "yandex_sites_to_delete", "yandex_client"]
 }

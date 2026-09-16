@@ -111,18 +111,16 @@ function skipUpdate() {
 window._scriptsData = { yandex: {}, google: {} };
 
 const serviceFields = {
-    yandex: ['oauth_token', 'user_id', 'metric_id', 'contact_path', 'sitemap_path'],
+    yandex: ['active_account', 'metric_id', 'contact_path', 'sitemap_path'],
     google: ['active_account', 'sitemap_path']
 };
 
 // Человекочитаемые названия ключей для toast-уведомлений
 const KEY_LABELS = {
-    oauth_token: 'OAuth Token',
-    user_id: 'User ID',
+    active_account: 'Аккаунт',
     metric_id: 'Счётчик метрики',
     contact_path: 'Путь контактов',
     sitemap_path: 'Путь сайтмапа',
-    active_account: 'Google аккаунт',
     links: 'Сайты',
     city: 'Города'
 };
@@ -132,23 +130,23 @@ const KEY_LABELS = {
 // Объект {always, ifLinks} — ifLinks проверяются только если заполнены сайты (режим добавления).
 const SCRIPT_REQUIREMENTS = {
     yandex: {
-        yandex_export:              ['oauth_token', 'user_id'],
-        yandex_metrika_export:      ['oauth_token', 'metric_id'],
-        yandex_add_sites:           ['oauth_token', 'user_id', 'links'],
-        yandex_verify:              ['oauth_token', 'user_id'],
-        yandex_sites_to_delete:     ['oauth_token', 'user_id', 'links'],
-        yandex_region_add:          { always: ['oauth_token', 'user_id'], ifLinks: ['contact_path', 'city'] },
-        yandex_add_sitemap:         ['oauth_token', 'user_id', 'sitemap_path'],
-        yandex_delete_sitemap:      ['oauth_token', 'user_id', 'sitemap_path'],
-        yandex_sitemap_recrawl:     ['oauth_token', 'user_id', 'sitemap_path'],
-        yandex_checklist:           ['oauth_token', 'user_id'],
-        yandex_metrika_add_mirrors: ['oauth_token', 'metric_id', 'links'],
-        yandex_metrika_bind_mirrors:['oauth_token', 'metric_id'],
-        yandex_metrika_add_metrics: ['oauth_token', 'user_id'],
-        yandex_metrika_delete_mirrors: ['oauth_token', 'metric_id', 'links'],
-        yandex_export_test:         ['oauth_token', 'user_id'],
-        yandex_sitemap_test:        ['oauth_token', 'user_id'],
-        yandex_metrika_test:        ['oauth_token']
+        yandex_export:              ['active_account'],
+        yandex_metrika_export:      ['active_account', 'metric_id'],
+        yandex_add_sites:           ['active_account', 'links'],
+        yandex_verify:              ['active_account'],
+        yandex_sites_to_delete:     ['active_account', 'links'],
+        yandex_region_add:          { always: ['active_account'], ifLinks: ['contact_path', 'city'] },
+        yandex_add_sitemap:         ['active_account', 'sitemap_path'],
+        yandex_delete_sitemap:      ['active_account', 'sitemap_path'],
+        yandex_sitemap_recrawl:     ['active_account', 'sitemap_path'],
+        yandex_checklist:           ['active_account'],
+        yandex_metrika_add_mirrors: ['active_account', 'metric_id', 'links'],
+        yandex_metrika_bind_mirrors:['active_account', 'metric_id'],
+        yandex_metrika_add_metrics: ['active_account'],
+        yandex_metrika_delete_mirrors: ['active_account', 'metric_id', 'links'],
+        yandex_export_test:         ['active_account'],
+        yandex_sitemap_test:        ['active_account'],
+        yandex_metrika_test:        ['active_account']
     },
     google: {
         gsc_export:             { always: ['active_account'], ifField: { show_sitemaps: ['sitemap_path'] } },
@@ -244,17 +242,68 @@ async function loadGlobalKeys() {
             window.pywebview.api.get_config('google')
         ]);
 
-        setKeyValue('yandex', 'oauth_token', yandexCfg.oauth_token);
-        setKeyValue('yandex', 'user_id', yandexCfg.user_id);
+        setKeyValue('yandex', 'active_account', yandexCfg.active_account);
         setKeyValue('yandex', 'metric_id', yandexCfg.metric_id);
         setKeyValue('yandex', 'contact_path', yandexCfg.contact_path);
         setKeyValue('yandex', 'sitemap_path', yandexCfg.sitemap_path);
 
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
 
-        await refreshGoogleAccounts();
+        await Promise.all([refreshYandexAccounts(), refreshGoogleAccounts()]);
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
+    }
+}
+
+async function refreshYandexAccounts() {
+    try {
+        const res = await window.pywebview.api.get_yandex_accounts();
+        const accounts = (res && res.accounts) || [];
+        const active = (res && res.active) || '';
+        const options = accounts.length
+            ? accounts.map(a => `<option value="${escHtml(a)}"${a === active ? ' selected' : ''}>${escHtml(a)}</option>`).join('')
+            : '<option value="">— аккаунт не авторизован —</option>';
+
+        document.querySelectorAll('[data-service="yandex"][data-field="active_account"]').forEach(sel => {
+            sel.innerHTML = options;
+            sel.value = accounts.includes(active) ? active : '';
+        });
+
+        if (!active && accounts.length === 1) {
+            await window.pywebview.api.save_config('yandex', { active_account: accounts[0] });
+            setKeyValue('yandex', 'active_account', accounts[0]);
+        }
+        return accounts;
+    } catch (err) {
+        addLoaderLog(`⚠️ Ошибка загрузки Яндекс-аккаунтов: ${err.message}`);
+        return [];
+    }
+}
+
+async function yandexAuthorize() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Авторизация...';
+    try {
+        const browser = await window.pywebview.api.check_browser('yandex');
+        if (!browser.running) {
+            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9229)"', 'error');
+            return;
+        }
+        showToast('Авторизуйтесь в открывшейся вкладке браузера (порт 9229)...', 'info');
+        const result = await window.pywebview.api.yandex_authorize();
+        if (result.log) result.log.forEach(line => console.log(`[yandex-auth] ${line}`));
+        if (result.success) {
+            await refreshYandexAccounts();
+            showToast(`Аккаунт ${result.account} авторизован`, 'success');
+        } else {
+            showToast(result.message || 'Авторизация не удалась', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Авторизоваться';
     }
 }
 
@@ -342,61 +391,6 @@ async function saveKeys(service, event) {
 }
 
 
-async function getYandexToken() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '⏳ Получение';
-    try {
-        const browser = await window.pywebview.api.check_browser('yandex');
-        if (!browser.running) {
-            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9229)"', 'error');
-            return;
-        }
-        showToast('Откройте страницу авторизации в браузере...', 'info');
-        const result = await window.pywebview.api.start_yandex_get_token();
-        if (result.log) result.log.forEach(line => console.log(`[yandex-auth] ${line}`));
-        if (result.success) {
-            setKeyValue('yandex', 'oauth_token', result.oauth_token);
-            syncKeys('yandex', document.getElementById('tab-dashboard'));
-            showToast('OAuth Token получен!', 'success');
-        } else {
-            showToast(result.message || 'Токен не получен', 'error');
-        }
-    } catch (err) {
-        showToast(`Ошибка: ${err.message}`, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '🔑 Получить';
-    }
-}
-
-async function getYandexUserId() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '⏳ Получение';
-    try {
-        const browser = await window.pywebview.api.check_browser('yandex');
-        if (!browser.running) {
-            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9229)"', 'error');
-            return;
-        }
-        showToast('Получаем User ID...', 'info');
-        const result = await window.pywebview.api.start_yandex_get_userid();
-        if (result.log) result.log.forEach(line => console.log(`[yandex-auth] ${line}`));
-        if (result.success) {
-            setKeyValue('yandex', 'user_id', result.user_id);
-            syncKeys('yandex', document.getElementById('tab-dashboard'));
-            showToast('User ID получен!', 'success');
-        } else {
-            showToast(result.message || 'User ID не получен', 'error');
-        }
-    } catch (err) {
-        showToast(`Ошибка: ${err.message}`, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '🔑 Получить';
-    }
-}
 async function getYandexMetricId() {
     const btn = event.target;
     btn.disabled = true;

@@ -47,7 +47,8 @@ YWM-and-GSC/
 │   │   ├── errors.js
 │   │   ├── yandex_sites_to_delete.js
 │   │   └── userid.js
-│   ├── config.json             # Токены Яндекс (OAuth, User ID, Metric ID, Sitemap, Contact Path)
+│   ├── config.json             # Настройки: активный аккаунт, Metric ID, Sitemap, Contact Path
+│   ├── accounts.json           # Аккаунты: login → {oauth_token, user_id}
 │   ├── array_<script>.js       # Изолированные массивы для каждого скрипта
 ├── google/                     # Модуль Google Search Console
 │   ├── scripts/                # JS скрипты автоматизации (6 файлов)

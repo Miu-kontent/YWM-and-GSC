@@ -22,13 +22,7 @@ def log_api(method, url, status, body=None):
             log(f'  body: {json.dumps(body, ensure_ascii=False)[:500]}')
 
 
-def load_config():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, '..', 'config.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+from yandex_client import load_config
 
 
 def load_script_data():

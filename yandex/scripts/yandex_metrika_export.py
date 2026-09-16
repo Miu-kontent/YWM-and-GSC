@@ -18,14 +18,7 @@ SITE_STATUS_LABELS = {
 PROBLEM_STATUSES = ("need_webmaster_confirm", "deleted")
 
 
-def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"❌ Ошибка чтения config.json: {e}")
-        sys.exit(1)
+from yandex_client import load_config
 
 
 def load_script_data():

@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 yandex/app_config.json
 yandex/config.json
+yandex/accounts.json
 yandex/arrays/*
 google/app_config.json
 google/accounts.json

@@ -6,6 +6,7 @@ import threading
 import subprocess
 import webview
 import requests
+import websocket
 import shutil
 import zipfile
 import io
@@ -29,6 +30,7 @@ class Api:
         self.repo_zip_url = "https://api.github.com/repos/Miu-kontent/YWM-and-GSC/zipball/main"
         self.yandex_app_config_path = os.path.join(self.yandex_dir, "app_config.json")
         self.yandex_config_path = os.path.join(self.yandex_dir, "config.json")
+        self.yandex_accounts_path = os.path.join(self.yandex_dir, "accounts.json")
         self.yandex_arrays_dir = os.path.join(self.yandex_dir, "arrays")
         self.yandex_scripts_dir = os.path.join(self.yandex_dir, "scripts")
         self.google_config_path = os.path.join(self.google_dir, "config.json")
@@ -110,8 +112,7 @@ class Api:
         default = {}
         if service == "yandex":
             default.update({
-                "oauth_token": "", 
-                "user_id": "", 
+                "active_account": "", 
                 "metric_id": "", 
                 "contact_path": "", 
                 "sitemap_path": ""
@@ -329,30 +330,6 @@ class Api:
         except Exception as e:
             return {"success": False, "message": str(e), "log": [f"❌ {e}"]}
 
-    def start_yandex_get_token(self):
-        result = self._run_yandex_script("yandex_get_token")
-        token = None
-        for line in result.get("log", []):
-            if line.startswith("OAUTH_TOKEN:"):
-                token = line.split(":", 1)[1]
-        if token:
-            config = self.get_config("yandex")
-            config["oauth_token"] = token
-            self.save_config("yandex", config)
-        return {"success": bool(token), "oauth_token": token or "", "log": result.get("log", [])}
-
-    def start_yandex_get_userid(self):
-        result = self._run_yandex_script("yandex_get_userid")
-        user_id = None
-        for line in result.get("log", []):
-            if line.startswith("USER_ID:"):
-                user_id = line.split(":", 1)[1]
-        if user_id:
-            config = self.get_config("yandex")
-            config["user_id"] = user_id
-            self.save_config("yandex", config)
-        return {"success": bool(user_id), "user_id": user_id or "", "log": result.get("log", [])}
-
     def start_yandex_get_metrika_id(self):
         result = self._run_yandex_script("yandex_metrika_getcounter")
         metric_id = None
@@ -374,6 +351,155 @@ class Api:
                 msg = "Счётчик не получен"
 
         return {"success": bool(metric_id), "metric_id": metric_id or "", "message": msg, "log": result.get("log", [])}
+
+    # ======================== YANDEX OAUTH (АККАУНТЫ) ========================
+
+    def _get_yandex_app_config(self):
+        if not os.path.exists(self.yandex_app_config_path):
+            return {}
+        try:
+            with open(self.yandex_app_config_path, "r", encoding="utf-8-sig") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[API] Ошибка чтения yandex/app_config.json: {e}")
+        return {}
+
+    def _load_yandex_accounts(self):
+        data = {}
+        if os.path.exists(self.yandex_accounts_path):
+            try:
+                with open(self.yandex_accounts_path, "r", encoding="utf-8-sig") as f:
+                    loaded = json.load(f)
+                data = loaded.get("accounts", loaded) if isinstance(loaded, dict) else {}
+            except Exception as e:
+                print(f"[API] Ошибка чтения yandex/accounts.json: {e}")
+        return data
+
+    def _save_yandex_accounts(self, accounts):
+        os.makedirs(self.yandex_dir, exist_ok=True)
+        with open(self.yandex_accounts_path, "w", encoding="utf-8") as f:
+            json.dump({"accounts": accounts}, f, ensure_ascii=False, indent=4)
+
+    def _open_in_yandex_debug_browser(self, url):
+        """Открывает URL новой вкладкой в отладочном Chrome (порт 9229) через CDP /json/new."""
+        try:
+            import urllib.parse
+            resp = requests.put(
+                f"http://127.0.0.1:9229/json/new?{urllib.parse.quote(url, safe='')}",
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                raise RuntimeError(f"CDP ответил HTTP {resp.status_code}")
+            return resp.json().get("webSocketDebuggerUrl", "")
+        except Exception as e:
+            print(f"[API] Ошибка открытия вкладки в браузере 9229: {e}")
+            raise RuntimeError(f"Не удалось открыть вкладку в браузере 9229: {e}")
+
+    def _wait_for_yandex_token(self, ws_url, timeout=180):
+        """Опрашивает страницу авторизации через WebSocket CDP (селектор токена implicit-потока)."""
+        TOKEN_SELECTOR = ".verification-code-flow-token-output"
+        poll_id = 88888
+        try:
+            ws = websocket.create_connection(ws_url, timeout=10)
+        except Exception as e:
+            raise RuntimeError(f"Ошибка подключения WebSocket CDP: {e}")
+        token = ""
+        start = time.time()
+        try:
+            while time.time() - start < timeout:
+                try:
+                    ws.send(json.dumps({
+                        "id": poll_id,
+                        "method": "Runtime.evaluate",
+                        "params": {
+                            "expression": f"document.querySelector('{TOKEN_SELECTOR}')?.textContent || ''",
+                            "returnByValue": True,
+                        },
+                    }))
+                    ws.settimeout(3)
+                    while True:
+                        resp = json.loads(ws.recv())
+                        if resp.get("id") == poll_id:
+                            token = (resp.get("result", {}).get("result", {}).get("value", "") or "").strip()
+                            break
+                except Exception:
+                    pass
+                if token:
+                    break
+                time.sleep(2)
+        finally:
+            try:
+                ws.close()
+            except Exception:
+                pass
+        return token
+
+    def yandex_authorize(self):
+        browser = self.check_browser("yandex")
+        if not browser.get("running"):
+            return {"success": False,
+                    "message": "Браузер Яндекс (порт 9229) не запущен. Откройте его кнопкой «🌐 Браузер (порт 9229)»"}
+
+        app_cfg = self._get_yandex_app_config()
+        client_id = app_cfg.get("client_id", "")
+        if not client_id:
+            return {"success": False, "message": "client_id не найден в yandex/app_config.json"}
+
+        auth_url = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={client_id}"
+
+        try:
+            ws_url = self._open_in_yandex_debug_browser(auth_url)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+        if not ws_url:
+            return {"success": False, "message": "Не удалось получить webSocketDebuggerUrl вкладки браузера"}
+
+        print("[API] 🔐 Авторизуйтесь в открывшейся вкладке браузера (до 180 сек)...")
+        try:
+            token = self._wait_for_yandex_token(ws_url)
+        except Exception as e:
+            return {"success": False, "message": f"Ошибка ожидания токена: {e}"}
+        if not token:
+            return {"success": False,
+                    "message": "Таймаут: токен не получен (180 сек). Авторизуйтесь в открывшейся вкладке браузера"}
+
+        headers = {"Authorization": f"OAuth {token}"}
+
+        try:
+            r = requests.get("https://login.yandex.ru/info", headers=headers, timeout=10)
+        except Exception as e:
+            return {"success": False, "message": f"Не удалось получить логин из Яндекс ID: {e}"}
+        if r.status_code != 200:
+            return {"success": False, "message": f"Не удалось получить логин из Яндекс ID (HTTP {r.status_code})"}
+        login = (r.json().get("login", "") or "").strip()
+        if not login:
+            return {"success": False, "message": "Пустой login в ответе Яндекс ID"}
+
+        try:
+            r2 = requests.get("https://api.webmaster.yandex.net/v4/user/", headers=headers, timeout=10)
+        except Exception as e:
+            return {"success": False, "message": f"Не удалось получить user_id из Вебмастера: {e}"}
+        if r2.status_code != 200:
+            return {"success": False, "message": f"Не удалось получить user_id из Вебмастера (HTTP {r2.status_code})"}
+        user_id = str(r2.json().get("user_id", "") or "")
+        if not user_id:
+            return {"success": False, "message": "Пустой user_id в ответе Вебмастера"}
+
+        accounts = self._load_yandex_accounts()
+        accounts[login] = {"oauth_token": token, "user_id": user_id}
+        self._save_yandex_accounts(accounts)
+
+        config = self.get_config("yandex")
+        config["active_account"] = login
+        self.save_config("yandex", config)
+
+        return {"success": True, "account": login,
+                "log": [f"✅ Аккаунт {login} авторизован и сохранён (user_id: {user_id})"]}
+
+    def get_yandex_accounts(self):
+        accounts = self._load_yandex_accounts()
+        config = self.get_config("yandex")
+        return {"success": True, "accounts": list(accounts.keys()), "active": config.get("active_account", "")}
 
     # ======================== GOOGLE OAUTH (DESKTOP) ========================
 

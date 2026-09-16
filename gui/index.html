@@ -55,17 +55,10 @@
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
                             <div class="form-group">
-                                <label class="form-label">OAuth Token</label>
-                                <input type="text" class="form-control" data-service="yandex" data-field="oauth_token" placeholder="y0_AgAAA...">
+                                <label class="form-label">Аккаунт Яндекс</label>
+                                <select class="form-control" data-service="yandex" data-field="active_account" title="Аккаунт, токены которого использует приложение"><option value="">— аккаунт не авторизован —</option></select>
                             </div>
-                            <button class="btn btn--primary btn--small" onclick="getYandexToken()">🔑 Получить</button>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
-                            <div class="form-group">
-                                <label class="form-label">User ID</label>
-                                <input type="text" class="form-control" data-service="yandex" data-field="user_id" placeholder="123456789">
-                            </div>
-                            <button class="btn btn--primary btn--small" onclick="getYandexUserId()">🔑 Получить</button>
+                            <button class="btn btn--primary btn--small" onclick="yandexAuthorize()">🔑 Авторизоваться</button>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
                             <div class="form-group">
@@ -121,17 +114,10 @@
                 <div class="accordion__body hidden" id="yandex-keys-body">
                     <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
                         <div class="form-group">
-                            <label class="form-label">OAuth Token</label>
-                            <input type="text" class="form-control" data-service="yandex" data-field="oauth_token" placeholder="y0_AgAAA...">
+                            <label class="form-label">Аккаунт Яндекс</label>
+                            <select class="form-control" data-service="yandex" data-field="active_account" title="Аккаунт, токены которого использует приложение"><option value="">— аккаунт не авторизован —</option></select>
                         </div>
-                        <button class="btn btn--primary btn--small" onclick="getYandexToken()">🔑 Получить</button>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
-                        <div class="form-group">
-                            <label class="form-label">User ID</label>
-                            <input type="text" class="form-control" data-service="yandex" data-field="user_id" placeholder="123456789">
-                        </div>
-                        <button class="btn btn--primary btn--small" onclick="getYandexUserId()">🔑 Получить</button>
+                        <button class="btn btn--primary btn--small" onclick="yandexAuthorize()">🔑 Авторизоваться</button>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
                         <div class="form-group">

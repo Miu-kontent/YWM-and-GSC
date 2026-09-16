@@ -15,14 +15,7 @@ RETRY_SLEEP = 0.5
 RETRY_CODES = (429, 500, 502, 503, 504)
 
 
-def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config.json')
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"❌ Ошибка чтения config.json: {e}")
-        sys.exit(1)
+from yandex_client import load_config
 
 
 def load_script_data():

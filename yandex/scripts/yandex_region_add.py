@@ -108,13 +108,7 @@ def normalize_host(url):
     return (parsed.hostname or '').lower()
 
 
-def load_config():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, '..', 'config.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+from yandex_client import load_config
 
 
 def load_script_data():
