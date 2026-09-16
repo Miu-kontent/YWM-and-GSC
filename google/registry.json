@@ -12,7 +12,7 @@
                     "script": "gsc_export",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для выгрузки(Пусто = все сайты из GSC)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для выгрузки (Пусто = все сайты из GSC)"},
                         {"name": "show_sitemaps", "type": "checkbox", "label": "Сайтмапы"}
                     ],
                     "layout": {
@@ -80,7 +80,7 @@
                     "script": "gsc_verify",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения(Пусто = все сайты из GSC)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения (Пусто = все сайты из GSC)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -224,7 +224,10 @@
                         {"name": "links", "type": "textarea", "label": "Сайты для анализа (Пусто = все сайты из GSC, макс 3)"},
                         {"name": "date_from", "type": "date", "label": "Дата от"},
                         {"name": "date_to", "type": "date", "label": "Дата до"}
-                    ]
+                    ],
+                    "layout": {
+                        "hideSave": true
+                    }
                 },
                 {
                     "id": "gsc_sitemap_test",

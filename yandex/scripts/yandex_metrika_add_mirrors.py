@@ -4,9 +4,12 @@ import sys
 import time
 import requests
 
+from urllib.parse import urlparse
+
 DEBUG = False
 
 BASE_URL = "https://api-metrika.yandex.net"
+DEFAULT_BATCH_SIZE = 50
 
 
 def log(msg):
@@ -26,8 +29,11 @@ def load_script_data():
     arrays_dir = os.path.join(script_dir, '..', 'arrays')
     data_file = os.path.join(arrays_dir, 'yandex_metrika_add_mirrors.json')
     if os.path.exists(data_file):
-        with open(data_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(data_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
     return {}
 
 
@@ -40,12 +46,11 @@ def normalize_host(url):
     url = url.strip()
     if '://' not in url:
         url = 'http://' + url
-    from urllib.parse import urlparse
     parsed = urlparse(url)
     return (parsed.hostname or '').lower()
 
 
-def api_request(method, url, headers, json_body=None, retries=3, timeout=15):
+def api_request(method, url, headers, json_body=None, retries=5, timeout=90):
     for attempt in range(retries):
         try:
             resp = requests.request(method, url, headers=headers, json=json_body, timeout=timeout)
@@ -55,15 +60,18 @@ def api_request(method, url, headers, json_body=None, retries=3, timeout=15):
             except Exception:
                 body = {"raw": resp.text[:500]}
             log_api(method, url, resp.status_code, body)
+            if resp.status_code in (500, 502, 503, 504) and attempt < retries - 1:
+                time.sleep(2)
+                continue
             return resp.status_code, body, None
         except requests.exceptions.ConnectionError:
             if attempt == retries - 1:
                 return None, None, f"Соединение не установлено после {retries} попыток"
-            time.sleep(1)
+            time.sleep(2)
         except requests.exceptions.Timeout:
             if attempt == retries - 1:
                 return None, None, f"Превышен таймаут ({timeout}с) после {retries} попыток"
-            time.sleep(1)
+            time.sleep(2)
         except Exception as e:
             return None, None, str(e)
     return None, None, "Unknown error"
@@ -81,7 +89,16 @@ def mirror_status(m):
     return ""
 
 
+def put_error_str(put_status, put_body_data):
+    error_code = put_body_data.get('code', f'HTTP {put_status}') if isinstance(put_body_data, dict) else f'HTTP {put_status}'
+    error_message = put_body_data.get('message', '') if isinstance(put_body_data, dict) else ''
+    return f"{error_message} ({error_code})" if error_message else str(error_code)
+
+
 def main():
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
     config = load_config()
     script_data = load_script_data()
 
@@ -110,8 +127,7 @@ def main():
         return
 
     headers = {
-        'Authorization': f'OAuth {token}',
-        'Content-Type': 'application/json'
+        'Authorization': f'OAuth {token}'
     }
 
     log(f'token: {token[:20]}...')
@@ -163,10 +179,9 @@ def main():
     added_count = 0
     error_count = 0
 
-    for i, site in enumerate(sites, 1):
+    pending_additions = []
+    for site in sites:
         hostname = normalize_host(site)
-        print(f'🔄 [{i}/{len(sites)}] {site}')
-
         if hostname in existing_status:
             status_label = existing_status[hostname]
             status_map = {
@@ -177,33 +192,81 @@ def main():
             row_status = status_map.get(status_label, f"ℹ️ Уже добавлено ({status_label})")
             already_count += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, row_status]}, ensure_ascii=False)}')
-            time.sleep(0.3)
             continue
+        pending_additions.append(hostname)
 
-        new_mirror = build_mirror_item(hostname)
-        put_body = {"counter": {"mirrors": active_mirrors + [new_mirror]}}
+    if not pending_additions:
+        print()
+        summary = {
+            "Всего": len(sites),
+            "Добавлено ранее": already_count,
+            "Добавлено": 0,
+            "Ошибок": 0
+        }
+        print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+        print('__TABLE_DONE__:{}')
+        return
 
-        put_status, put_body_data, put_err = api_request(
+    batch_size = DEFAULT_BATCH_SIZE
+    processed = 0
+    total = len(pending_additions)
+    i = 0
+
+    print(f'ℹ️  Список новых сайтов: {len(pending_additions)}')
+    print(f'ℹ️  Пакетная вставка (по {batch_size}, с авто-уменьшением при ошибках)...')
+
+    def put_batch(batch):
+        put_body = {"counter": {"mirrors": active_mirrors + [build_mirror_item(s) for s in batch]}}
+        result = api_request(
             'PUT',
             f'{BASE_URL}/management/v1/counter/{metric_id}',
             headers,
-            json_body=put_body
+            json_body=put_body,
+            retries=5,
+            timeout=90
         )
+        return result, put_body
 
-        if put_err:
-            error_count += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ {put_err}"]}, ensure_ascii=False)}')
-        elif put_status == 200:
-            added_count += 1
-            active_mirrors.append(new_mirror)
-            existing_status[hostname] = ""
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "✅ Добавлен"]}, ensure_ascii=False)}')
-        else:
-            error_code = put_body_data.get('code', f'HTTP {put_status}') if isinstance(put_body_data, dict) else f'HTTP {put_status}'
-            error_message = put_body_data.get('message', '') if isinstance(put_body_data, dict) else ''
-            error_detail = f"{error_message} ({error_code})" if error_message else str(error_code)
-            error_count += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site, f"❌ {error_detail}"]}, ensure_ascii=False)}')
+    while i < len(pending_additions):
+        batch = pending_additions[i:i + batch_size]
+
+        print(f'🔄 [{processed}/{total}] Добавляю партию {len(batch)}, батч-размер {batch_size}...')
+        (put_status, put_body_data, put_err), put_body = put_batch(batch)
+        ok = put_err is None and put_status == 200
+
+        if not ok:
+            print('⚠️  Ошибка пакета, повторная попытка тем же пакетом...')
+            time.sleep(2)
+            (put_status, put_body_data, put_err), put_body = put_batch(batch)
+            ok = put_err is None and put_status == 200
+
+        if ok:
+            active_mirrors = list(put_body["counter"]["mirrors"])
+            for s in batch:
+                existing_status[s] = ""
+                added_count += 1
+                processed += 1
+                print(f'__TABLE_ROW__:{json.dumps({"cells": [s, "✅ Добавлен"]}, ensure_ascii=False)}')
+            i += len(batch)
+            batch_size = DEFAULT_BATCH_SIZE
+            continue
+
+        error_detail = put_err if put_err else put_error_str(put_status, put_body_data)
+        if batch_size > 10:
+            print(f'❌ Ошибка пакета ({len(batch)}): {error_detail}. Уменьшаю пакет до 10...')
+            batch_size = 10
+            continue
+        if batch_size > 1:
+            print(f'❌ Ошибка группы ({len(batch)}): {error_detail}. Уменьшаю пакет до 1...')
+            batch_size = 1
+            continue
+
+        print(f'❌ Ошибка добавления сайта: {error_detail}')
+        error_count += 1
+        processed += 1
+        print(f'__TABLE_ROW__:{json.dumps({"cells": [batch[0], f"❌ {error_detail}"]}, ensure_ascii=False)}')
+        i += 1
+        batch_size = DEFAULT_BATCH_SIZE
 
     print()
     summary = {

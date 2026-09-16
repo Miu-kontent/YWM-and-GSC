@@ -87,7 +87,7 @@ function toggleTheme() {
 
 function updateThemeIcon() {
     const btn = document.querySelector('.btn--icon');
-    if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️' : '🌙';
+    if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️ Светлая' : '🌙 Тёмная';
 }
 
 function addLoaderLog(msg) {
@@ -554,6 +554,7 @@ function renderCategoryNav(service, registry) {
             btn.addEventListener('mouseenter', () => {
                 clearTimeout(hideTimeout);
                 dropdown.classList.add('visible');
+                positionDropdown(dropdown, btn);
             });
             btn.addEventListener('mouseleave', () => {
                 hideTimeout = setTimeout(() => dropdown.classList.remove('visible'), 150);
@@ -582,15 +583,53 @@ function onSubcategorySelect(service, categoryId, subcategoryId) {
     document.querySelectorAll(`#${service}-category-nav .category-btn`).forEach(b => b.classList.remove('active'));
 }
 
+function measureTextWidth(text) {
+    const canvas = measureTextWidth.canvas || (measureTextWidth.canvas = document.createElement('canvas'));
+    const ctx = canvas.getContext('2d');
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    return ctx.measureText(text).width;
+}
+
 function positionTooltips(container) {
-    const rect = container.getBoundingClientRect();
     container.querySelectorAll('[data-tooltip]').forEach(el => {
-        el.classList.remove('tooltip-left', 'tooltip-right');
+        el.style.removeProperty('--tip-shift');
+        const text = (el.getAttribute('data-tooltip') || '').trim();
+        if (!text) return;
         const r = el.getBoundingClientRect();
-        if (r.left - rect.left < 50) el.classList.add('tooltip-left');
-        else if (rect.right - r.right < 50) el.classList.add('tooltip-right');
+        const w = measureTextWidth(text) + 22;
+        const pad = 8;
+        const center = r.left + r.width / 2;
+        let shift = 0;
+        if (center - w / 2 < pad) shift = pad - (center - w / 2);
+        if (center + w / 2 + shift > window.innerWidth - pad) {
+            shift = (window.innerWidth - pad) - (center + w / 2);
+        }
+        if (shift !== 0) el.style.setProperty('--tip-shift', shift + 'px');
     });
 }
+
+function positionDropdown(dropdown, btn) {
+    const d = dropdown.getBoundingClientRect();
+    const b = btn.getBoundingClientRect();
+    const pad = 8;
+    const desired = b.left + b.width / 2 - d.width / 2;
+    const maxLeft = window.innerWidth - d.width - pad;
+    const left = Math.max(pad, Math.min(desired, maxLeft));
+    dropdown.style.left = (left - b.left) + 'px';
+}
+
+function repositionNav() {
+    ['yandex', 'google'].forEach(srv => {
+        const nav = document.getElementById(`${srv}-category-nav`);
+        if (nav) positionTooltips(nav);
+    });
+    document.querySelectorAll('.category-dropdown.visible').forEach(dd => {
+        const btn = dd.closest('.category-btn');
+        if (btn) positionDropdown(dd, btn);
+    });
+}
+
+window.addEventListener('resize', repositionNav);
 
 // ======================== ПАНЕЛЬ СКРИПТА ========================
 
@@ -657,6 +696,18 @@ function renderFieldInput(field, scriptId, savedData) {
                 <textarea class="form-control" id="${id}" placeholder="Введите ${f.name}...">${escHtml(textVal)}</textarea>
             </div>`;
     }
+}
+
+function renderInlineField(field, scriptId, savedData) {
+    const f = resolveField(field);
+    const val = savedData[f.name] || '';
+    const id = `${scriptId}-${f.name}`;
+    const control = f.type === 'select'
+        ? `<select class="form-control" id="${id}" title="${escHtml(f.label)}">${f.options.map(o =>
+            `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+        ).join('')}</select>`
+        : `<input type="text" class="form-control" id="${id}" value="${escHtml(val)}" placeholder="${escHtml(f.label)}" title="${escHtml(f.label)}">`;
+    return control;
 }
 
 function getScriptLayout(service, scriptName) {
@@ -780,8 +831,21 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
     const layout = getScriptLayout(service, scriptName) || {};
     const selection = getSavedSelection(service, scriptName, layout);
 
-    const inputsHtml = (fields || []).filter(f => resolveField(f).type !== 'checkbox')
-        .map(field => renderFieldInput(field, scriptId, savedData)).join('');
+    const rowFieldNames = layout.rowFields || [];
+
+    const inputsHtml = (fields || []).filter(f => {
+        const t = resolveField(f).type;
+        if (t === 'checkbox' || t === 'select') return false;
+        if (rowFieldNames.includes(f.name)) return false;
+        return true;
+    }).map(field => renderFieldInput(field, scriptId, savedData)).join('');
+
+    const rowFieldsHtml = (fields || [])
+        .filter(f => rowFieldNames.includes(f.name) && resolveField(f).type !== 'checkbox')
+        .map(field => renderInlineField(field, scriptId, savedData)).join('');
+
+    const modeSelectsHtml = (fields || []).filter(f => resolveField(f).type === 'select' && !rowFieldNames.includes(f.name))
+        .map(field => renderInlineField(field, scriptId, savedData)).join('');
 
     const fieldCheckboxesHtml = (fields || []).some(f => resolveField(f).type === 'checkbox')
         ? `<div class="export-groups" id="${scriptId}-field-checkboxes">` + fields.filter(f => resolveField(f).type === 'checkbox').map(f => {
@@ -797,9 +861,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
         ? ` style="grid-template-columns: repeat(${layout.inputColumns}, minmax(0, 1fr));"`
         : '';
 
-    const statusStyle = layout.statusRolling
-        ? 'font-size: 13px; color: var(--text-muted); flex: 1; margin-left: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'
-        : 'font-size: 13px; color: var(--text-muted); margin-left: auto;';
+    const statusStyle = 'flex: 1; margin-left: 16px; min-width: 0; font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
 
     const saveBtn = layout.hideSave
         ? ''
@@ -850,6 +912,8 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
                     ${saveBtn}
                     ${fieldCheckboxesHtml}
                     ${groupsHtml}
+                    ${modeSelectsHtml}
+                    ${rowFieldsHtml}
                     <span class="script-status" style="${statusStyle}" id="${scriptId}-status"></span>
                 </div>
                 ${logsHtml}
@@ -1221,17 +1285,39 @@ function replaceTableRow(scriptId, data) {
     }
 }
 
-function finalizeTable(scriptId) {
+function hasPostActionMatches(layout, tbody) {
+    if (!tbody) return false;
+    for (const action of (layout.postActions || [])) {
+        const exclude = action.excludeStatus || [];
+        const contains = action.statusContains || [];
+        const col = action.statusColumn != null ? action.statusColumn : 1;
+        for (const row of tbody.rows) {
+            if (!row.cells.length) continue;
+            const site = row.cells[0].textContent.trim();
+            if (!site) continue;
+            const status = row.cells[col] ? row.cells[col].textContent.trim() : '';
+            if (exclude.includes(status)) continue;
+            if (contains.length && !contains.some(s => status.includes(s))) continue;
+            return true;
+        }
+    }
+    return false;
+}
+
+function ensureTableActions(scriptId) {
     const el = document.getElementById(`${scriptId}-report`);
     if (!el) return;
-    const existing = el.querySelector('.table-actions');
-    if (existing) return;
+    if (el.querySelector('.table-actions')) return;
     const dashIdx = scriptId.indexOf('-');
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const layout = getScriptLayout(service, script) || {};
+    const tbody = el.querySelector('tbody');
 
-    const postBtns = (layout.postActions || [])
+    const postActions = (layout.postActions || []);
+    const hasAnyMatch = hasPostActionMatches(layout, tbody);
+
+    const postBtns = hasAnyMatch ? postActions
         .filter(a => {
             if (!a.depends || a.depends === 'always') return true;
             if (a.depends.startsWith('field:')) return isFieldTruthy(scriptId, a.depends.slice(6));
@@ -1239,12 +1325,16 @@ function finalizeTable(scriptId) {
         })
         .map(a =>
             `<button class="btn btn--secondary" id="${scriptId}-pa-${a.id}" onclick="runPostAction('${service}', '${script}', '${a.id}')">${escHtml(a.label)}</button>`
-        ).join('');
+        ).join('') : '';
 
     const actions = document.createElement('div');
     actions.className = 'table-actions';
     actions.innerHTML = `${postBtns}<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>`;
     el.appendChild(actions);
+}
+
+function finalizeTable(scriptId) {
+    ensureTableActions(scriptId);
 }
 
 function runPostAction(service, script, actionId) {

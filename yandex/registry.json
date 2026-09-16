@@ -302,7 +302,7 @@
                     "type": "api",
                     "fields": [
                         {"name": "links", "type": "textarea", "label": "Сайты для удаления сайтмапа (Пусто = все сайты из Вебмастера)"},
-                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа"}
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа для удаления"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -310,6 +310,7 @@
                         "statusRolling": true,
                         "splitSummary": true,
                         "summaryLabel": "Результаты удаления сайтмапов",
+                        "rowFields": ["sitemap_path"],
                         "columns": [
                             {"depends": "always", "label": "Сайт", "width": "300px"},
                             {"depends": "always", "label": "Сайтмап", "width": "300px"},
@@ -476,8 +477,11 @@
                         {"value": "OUTDATED_CONTENT", "label": "OUTDATED_CONTENT"},
                         {"value": "UNREACHABLE", "label": "UNREACHABLE"}
                     ]}
-                ]
-            },
+                ],
+                    "layout": {
+                        "hideSave": true
+                    }
+                },
             {
                 "id": "sitemap_test",
                 "name": "Проверка сайтмапов (тест)",
@@ -510,7 +514,10 @@
                 "description": "API Метрики",
                 "script": "yandex_metrika_test",
                 "type": "api",
-                "fields": []
+                "fields": [],
+                "layout": {
+                    "hideSave": true
+                }
             }
             ]
         }

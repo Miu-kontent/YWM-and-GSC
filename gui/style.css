@@ -109,8 +109,8 @@ body {
 .btn--secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
 .btn--secondary:hover { border-color: var(--accent); }
 .btn--small { padding: 8px 16px; font-size: 13px; }
-.btn--icon { width: 20%; padding: 0; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); font-size: 1.5rem; }
-.btn--icon:hover { border-color: var(--accent); }
+.btn--icon { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+.btn--icon:hover { border-color: var(--accent); background: var(--bg-body); color: var(--text-main); }
 
 /* --- Формы и Инпуты (Forms) --- */
 .form-group { margin-bottom: 12px; }
@@ -155,8 +155,8 @@ select.form-control {
 
 /* --- Таблицы (Tables) --- */
 .table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; max-height: 500px; overflow-y: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-.table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; user-select: text; }
+.table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; cursor: text; -webkit-user-select: text; }
 .table th { background: var(--bg-card); font-weight: 600; color: var(--text-muted); position: sticky; top: 0; }
 .table tr:hover td { background: var(--bg-body); }
 .table td.center { text-align: center; }
@@ -166,6 +166,7 @@ select.form-control {
     bottom: 0;
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
     padding: 8px 12px;
     background: var(--bg-card);
     border-top: 1px solid var(--border-color);
@@ -178,16 +179,22 @@ select.form-control {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 10px;
+    height: 41px;
+    padding: 0 14px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background: var(--bg-body);
     font-size: 13px;
     color: var(--text-muted);
-    cursor: help;
+    cursor: pointer;
     user-select: none;
+    transition: all 0.2s;
 }
+.export-group:hover { border-color: var(--accent); }
 .export-group input { cursor: pointer; }
+.align-right .form-control { width: auto; height: 41px; padding: 0 12px; font-size: 14px; }
+.align-right input.form-control { width: 260px; max-width: 40vw; }
+.align-right select.form-control { min-width: 340px; }
 .table tbody:empty::after {
     content: 'Нет данных';
     display: block;
@@ -251,13 +258,26 @@ select.form-control {
 .log-line.warning { color: var(--status-warning-text); }
 .log-line.info { color: var(--status-info-text); }
 
+/* Блок логов на экране загрузки: фиксированный размер с самого старта */
+#loader-logs {
+    width: 480px;
+    max-width: 90vw;
+    min-width: 0;
+    height: 220px;
+    min-height: 220px;
+    max-height: 220px;
+    margin-top: 16px;
+}
+
 /* Утилиты */
 .hidden { display: none !important; }
 .align-right { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
 
 /* Статус-строка скрипта */
 .script-status {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    height: 41px;
     padding: 6px 12px;
     border-radius: 8px;
     background: var(--bg-body);
@@ -270,6 +290,7 @@ select.form-control {
     white-space: nowrap;
     transition: color 0.2s, border-color 0.2s, background 0.2s;
     max-width: 100%;
+    min-width: 0;
 }
 
 /* --- Accordion (сворачиваемые панели) --- */
@@ -327,15 +348,14 @@ select.form-control {
 [data-tooltip] { position: relative; }
 [data-tooltip]::after {
     content: attr(data-tooltip); position: absolute; bottom: calc(100% + 8px);
-    left: 50%; transform: translateX(-50%); padding: 6px 10px; border-radius: 6px;
+    left: 50%; transform: translateX(calc(-50% + var(--tip-shift, 0px)));
+    padding: 6px 10px; border-radius: 6px;
     background: var(--bg-card); border: 1px solid var(--border-color);
     color: var(--text-main); font-size: 12px; white-space: nowrap;
     opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 300;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 [data-tooltip]:hover::after { opacity: 1; }
-[data-tooltip].tooltip-left::after { left: 0; transform: translateX(0); }
-[data-tooltip].tooltip-right::after { left: auto; right: 0; transform: translateX(0); }
 
 /* --- Script Content Panel --- */
 .script-panel { margin-top: 16px; }
