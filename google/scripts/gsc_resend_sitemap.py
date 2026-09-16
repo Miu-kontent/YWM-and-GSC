@@ -1,25 +1,3 @@
-"""
-gsc_resend_sitemap.py — переотправка sitemap в Google Search Console.
-
-Для каждого сайта из списка links (сайт или полный URL сайтмапа) отправляет
-команду переотправки sitemap одним из двух способов:
-
-    submit            — обычный метод: webmasters.sitemaps().submit
-    delete_and_submit — буквальный: сначала sitemaps().delete (ошибка 404
-                        игнорируется), затем sitemaps().submit
-
-Вход (google/arrays/gsc_resend_sitemap.json):
-    links — сайты (по одному на строку) ИЛИ полные URL сайтмапов.
-            Пусто = все сайты аккаунта (только подтверждённые).
-    mode  — 'submit' | 'delete_and_submit' (по умолчанию 'submit').
-
-sitemap_path — обязательный ключ в google/config.json. URL сайтмапа строится
-как site.rstrip('/') + sitemap_path; если в links передан полный URL сайтмапа
-(оканчивается на sitemap_path), он используется напрямую.
-
-Формат таблицы: Сайт | Сайтмап | Статус.
-Сводка: Сайтов | Режим | Успешно | Ошибок.
-"""
 import json
 import os
 import sys
@@ -32,8 +10,8 @@ QUOTA_WAIT = 10
 QUOTA_RETRIES = 10
 
 MODES = {
-    'submit': 'Обычный (только Submit)',
-    'delete_and_submit': 'Буквальный (Удаление + Submit)',
+    'submit': 'Переотправка',
+    'delete_and_submit': 'Удаление + отправка',
 }
 
 
