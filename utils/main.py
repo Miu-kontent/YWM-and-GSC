@@ -248,7 +248,7 @@ class Api:
             chrome_path,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile_path}",
-            # "--no-first-run",
+            "--no-first-run",
             "--no-default-browser-check",
             "--remote-allow-origins=*"
         ]
@@ -701,7 +701,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True, private_mode=False)
+    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=False, private_mode=False)
 
 
 if __name__ == "__main__":
