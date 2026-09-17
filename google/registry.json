@@ -104,19 +104,28 @@
                     "id": "delete",
                     "name": "Удаление",
                     "description": "Удаление сайтов",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9227,
-                    "fields": ["gsc_sites_to_delete"]
-                },
-                {
-                    "id": "delete_unverified",
-                    "name": "Удаление неподтверждённых",
-                    "description": "Удаление неподтверждённых сайтов",
-                    "script": null,
-                    "type": "browser",
-                    "port": 9227,
-                    "fields": ["gsc_sites_to_delete"]
+                    "script": "gsc_delete_sites",
+                    "type": "api",
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты удаления",
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Статус", "width": "250px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Удалено", "depends": "always"},
+                            {"key": "Не найдено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },
@@ -203,9 +212,32 @@
                     "id": "delete",
                     "name": "Удаление",
                     "description": "Удаление sitemap",
-                    "script": null,
+                    "script": "gsc_delete_sitemap",
                     "type": "api",
-                    "fields": []
+                    "fields": [
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Пусто = все сайты из GSC)"},
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа к удалению"}
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Результаты удаления sitemap",
+                        "rowFields": ["sitemap_path"],
+                        "columns": [
+                            {"depends": "always", "label": "Сайт", "width": "300px"},
+                            {"depends": "always", "label": "Сайтмап", "width": "270px"},
+                            {"depends": "always", "label": "Статус", "width": "200px"}
+                        ],
+                        "summaryRows": [
+                            {"key": "Сайтов", "depends": "always"},
+                            {"key": "Путь сайтмапа", "depends": "always"},
+                            {"key": "Удалено", "depends": "always"},
+                            {"key": "Не найдено", "depends": "always"},
+                            {"key": "Ошибок", "depends": "always"}
+                        ]
+                    }
                 }
             ]
         },

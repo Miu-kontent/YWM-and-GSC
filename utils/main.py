@@ -290,7 +290,7 @@ class Api:
                     webview.windows[0].evaluate_js(f"appendLog('{key}', {safe_text})")
             proc.stdout.close()
             proc.wait()
-            webview.windows[0].evaluate_js(f"scriptFinished('{key}')")
+            webview.windows[0].evaluate_js(f"scriptFinished('{key}', {proc.returncode})")
             self.running_processes.pop(key, None)
 
         try:
@@ -687,11 +687,11 @@ def main():
         title="YWM-and-GSC",
         url=html_file,
         js_api=api,
-        width=1000,
+        width=970,
         height=800,
         frameless=False,
         on_top=False,
-        min_size=(600, 400),
+        min_size=(730, 400),
         background_color='#121214'
     )
 

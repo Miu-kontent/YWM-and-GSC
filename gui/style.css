@@ -34,32 +34,41 @@
 }
 
 .light-theme {
-    /* Проверенные цвета (светлая тема) */
-    --bg-body: #f5f5f5;
+    /* Базовые цвета: холодный серый фон и чистые белые карточки */
+    --bg-body: #f1f5f9; 
     --bg-card: #ffffff;
     --bg-input: #ffffff;
-    --text-main: #333333;
-    --text-muted: #555555;
-    --accent: #4CAF50;
-    --accent-hover: #45a049;
-    --border-color: #cccccc;
     
-    --btn-bg: #4CAF50;
+    /* Текст: не абсолютно черный, а глубокий сине-серый для мягкости */
+    --text-main: #1e293b; 
+    --text-muted: #64748b;
+    
+    /* Акцент: благородный синий (перекличка с фоном темной темы) */
+    --accent: #2563eb; 
+    --accent-hover: #1d4ed8;
+    --border-color: #e2e8f0; 
+    
+    /* Кнопки: строгие, выделяющиеся */
+    --btn-bg: #2563eb;
     --btn-text: #ffffff;
-    --btn-hover: #45a049;
+    --btn-hover: #1d4ed8;
     
-    --tab-active-bg: #388e3c;
+    /* Табы / Навигация */
+    --tab-active-bg: #e0e7ff; /* Очень легкий синий для активного таба */
     
-    --input-border: #cccccc;
-    --input-focus-border: #4CAF50;
-    --input-focus-shadow: rgba(76, 175, 80, 0.3);
+    /* Формы */
+    --input-border: #cbd5e1;
+    --input-focus-border: #3b82f6;
+    --input-focus-shadow: rgba(59, 130, 246, 0.15);
     
-    --status-error-text: #97111f;
-    --status-success-text: #2e7d32;
-    --status-warning-text: #664d03;
-    --status-info-text: #4CAF50;
+    /* Статусы (чистые, современные тона) */
+    --status-error-text: #ef4444;
+    --status-success-text: #10b981;
+    --status-warning-text: #f59e0b;
+    --status-info-text: #3b82f6;
 
-    --shadow: 0 4px 20px rgba(0,0,0,0.1);
+    /* Мягкая тень, чтобы карточки "парили" над серым фоном */
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -240,12 +249,13 @@ select.form-control {
     padding: 16px 24px; background: var(--bg-card);
     border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100;
 }
-.header h1 { width: 20%; font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+.header h1 { font-size: 1.5rem; font-weight: 600; color: var(--accent); }
 
 /* Сводка ключей */
 .keys-summary { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 13px; margin-bottom: 20px; }
 .keys-summary span { background: var(--bg-body); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); }
 
+.header__spacer { display: flex; align-items: center; gap: 10px; overflow: hidden; }
 /* Логи */
 .logs-container {
     background: var(--bg-body); border: 1px solid var(--border-color);
@@ -337,6 +347,9 @@ select.form-control {
 .subcategory-item {
     display: flex; flex-direction: column;
     padding: 10px 16px; cursor: pointer; transition: background 0.15s;
+    margin: 2px 6px;
+    border: 1px solid transparent;
+    border-radius: 8px;
 }
 .subcategory-item:hover { background: var(--bg-body); }
 .subcategory-item__name { font-size: 14px; font-weight: 500; }
@@ -359,6 +372,35 @@ select.form-control {
 
 /* --- Script Content Panel --- */
 .script-panel { margin-top: 16px; }
+
+/* --- Статусные рамки скриптов и категорий --- */
+@keyframes statusPulse {
+    0%, 100% { box-shadow: 0 0 0 1px var(--status-info-text), 0 0 4px rgba(0,0,0,0); }
+    50%      { box-shadow: 0 0 0 1px var(--status-info-text), 0 0 12px var(--status-info-text); }
+}
+
+.script-running,
+.cat-running,
+.sub-running {
+    border-color: var(--status-info-text) !important;
+    animation: statusPulse 1.8s ease-in-out infinite;
+}
+
+.script-success,
+.cat-success,
+.sub-success {
+    border-color: var(--status-success-text) !important;
+    box-shadow: 0 0 0 1px var(--status-success-text), 0 0 10px var(--status-success-text);
+    animation: none;
+}
+
+.script-error,
+.cat-error,
+.sub-error {
+    border-color: var(--status-error-text) !important;
+    box-shadow: 0 0 0 1px var(--status-error-text), 0 0 10px var(--status-error-text);
+    animation: none;
+}
 .script-panel__placeholder {
     padding: 40px; text-align: center; color: var(--text-muted);
     font-size: 14px; border: 1px dashed var(--border-color); border-radius: 12px;

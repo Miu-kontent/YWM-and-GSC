@@ -154,6 +154,8 @@ const SCRIPT_REQUIREMENTS = {
         gsc_verify:             ['active_account'],
         gsc_add_sitemap:        ['active_account', 'sitemap_path'],
         gsc_resend_sitemap:     ['active_account', 'sitemap_path'],
+        gsc_delete_sites:       ['active_account', 'links'],
+        gsc_delete_sitemap:     ['active_account'],
         gsc_export_test:        ['active_account'],
         gsc_sitemap_test:       ['active_account']
     }
@@ -168,6 +170,59 @@ function getSubcategoryForScript(service, script) {
         }
     }
     return null;
+}
+
+// ======================== СТАТУСНЫЕ РАМКИ ========================
+
+const scriptUiState = {}; // scriptId -> 'running' | 'success' | 'error' | null
+
+function findCategoryForScript(service, script) {
+    const registry = window._registries[service];
+    if (!registry) return null;
+    for (const cat of registry.categories) {
+        for (const sub of (cat.subcategories || [])) {
+            if (sub.script === script) return cat;
+        }
+    }
+    return null;
+}
+
+function refreshCategoryBorder(service, cat) {
+    const subs = (cat.subcategories || []).filter(s => s.script);
+    let running = false, error = false, success = false;
+    subs.forEach(sub => {
+        const st = scriptUiState[`${service}-${sub.script}`];
+        if (st === 'running') running = true;
+        else if (st === 'error') error = true;
+        else if (st === 'success') success = true;
+    });
+    const status = running ? 'running' : error ? 'error' : success ? 'success' : null;
+
+    document.querySelectorAll(`.category-btn[data-service="${service}"][data-cat="${cat.id}"]`)
+        .forEach(el => {
+            el.classList.remove('cat-running', 'cat-success', 'cat-error');
+            if (status) el.classList.add(`cat-${status}`);
+        });
+    document.querySelectorAll(`.subcategory-item[data-service="${service}"][data-cat="${cat.id}"]`)
+        .forEach(el => {
+            el.classList.remove('sub-running', 'sub-success', 'sub-error');
+            const st = el.dataset.script ? scriptUiState[`${service}-${el.dataset.script}`] : null;
+            if (st) el.classList.add(`sub-${st}`);
+        });
+}
+
+function setScriptUiStatus(service, script, status) {
+    const scriptId = `${service}-${script}`;
+    scriptUiState[scriptId] = status;
+
+    const card = document.getElementById(`${scriptId}-card`);
+    if (card) {
+        card.classList.remove('script-running', 'script-success', 'script-error');
+        if (status) card.classList.add(`script-${status}`);
+    }
+
+    const cat = findCategoryForScript(service, script);
+    if (cat) refreshCategoryBorder(service, cat);
 }
 
 function getRequiredLabel(key, service, script) {
@@ -516,6 +571,8 @@ function renderCategoryNav(service, registry) {
         const btn = document.createElement('div');
         btn.className = 'category-btn';
         btn.setAttribute('data-tooltip', cat.description);
+        btn.setAttribute('data-service', service);
+        btn.setAttribute('data-cat', cat.id);
 
         const hasSubs = cat.subcategories && cat.subcategories.length > 0;
         btn.innerHTML = `${cat.name} ${hasSubs ? '<span class="category-btn__arrow">&#9660;</span>' : ''}`;
@@ -527,6 +584,9 @@ function renderCategoryNav(service, registry) {
             cat.subcategories.forEach(sub => {
                 const item = document.createElement('div');
                 item.className = 'subcategory-item' + (sub.script ? '' : ' disabled');
+                item.setAttribute('data-service', service);
+                item.setAttribute('data-cat', cat.id);
+                item.setAttribute('data-script', sub.script || '');
                 
 
                 const scriptBadge = sub.script
@@ -1055,6 +1115,7 @@ async function runScript(service, script) {
     const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
 
     runningScripts[scriptId] = true;
+    setScriptUiStatus(service, script, 'running');
     if (btn) {
         btn.disabled = true;
         btn.textContent = '⏳ Выполняется...';
@@ -1093,6 +1154,7 @@ async function runScript(service, script) {
             btn.textContent = '▶ Запустить';
         }
         runningScripts[scriptId] = false;
+        setScriptUiStatus(service, script, 'error');
     }
 }
 
@@ -1166,20 +1228,25 @@ function appendLog(key, line) {
     }
 }
 
-function scriptFinished(key) {
+function scriptFinished(key, code) {
     const scriptId = key.replace(':', '-');
+    const dashIdx = scriptId.indexOf('-');
+    const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
+    const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
+    const isError = code !== 0;
     const statusEl = document.getElementById(`${scriptId}-status`);
     const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
 
     if (statusEl) {
-        statusEl.textContent = 'Завершено';
-        statusEl.style.color = 'var(--status-success-text)';
+        statusEl.textContent = isError ? 'Завершено с ошибкой' : 'Завершено';
+        statusEl.style.color = isError ? 'var(--status-error-text)' : 'var(--status-success-text)';
     }
     if (btn) {
         btn.disabled = false;
         btn.textContent = '▶ Запустить';
     }
     runningScripts[scriptId] = false;
+    setScriptUiStatus(service, script, isError ? 'error' : 'success');
 }
 
 // ======================== SUMMARY / TABLE PROTOCOL ========================

@@ -27,14 +27,19 @@
     </div>
 
     <header class="header">
-        <h1>YWM-and-GSC</h1>
+        <div class="header__spacer">
+            <img src="favicon.ico" alt="YWM-and-GSC Logo" style="width: 40px; height: 40px;">
+            <h1>YWM-and-GSC</h1>
+        </div>
         <!-- Используем универсальную навигацию -->
         <nav class="nav nav--horizontal" id="main-nav">
             <button class="nav__item active" data-tab="dashboard" onclick="switchTab('dashboard')">🏠 Главная</button>
             <button class="nav__item" data-tab="yandex" onclick="switchTab('yandex')">🌏 Яндекс</button>
             <button class="nav__item" data-tab="google" onclick="switchTab('google')">🔍 Google</button>
         </nav>
-        <button class="btn--icon" onclick="toggleTheme()" title="Сменить тему">🌙 Тёмная</button>
+        <div class="header__spacer" style="justify-content: flex-end;">
+            <button class="btn--icon" onclick="toggleTheme()" title="Сменить тему">🌙 Тёмная</button>
+        </div>
     </header>
 
     <main class="container">
