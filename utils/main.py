@@ -83,11 +83,17 @@ class Api:
 
             with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                 root_prefix = z.namelist()[0].split('/')[0] + '/'
+                skip_tail = (
+                    ".git/", ".venv", "config.json", "app_config.json",
+                    "accounts.json", "ЯВМ и GSC.exe"
+                )
                 for member in z.namelist():
                     if member == root_prefix:
                         continue
                     rel_path = member[len(root_prefix):]
-                    if rel_path.startswith((".git/", ".venv")) or rel_path.endswith("config.json"):
+                    if any(rel_path.endswith(t) or rel_path.startswith(t) for t in skip_tail):
+                        continue
+                    if "/arrays/" in rel_path:
                         continue
 
                     target_path = os.path.join(self.base_dir, rel_path)
@@ -695,7 +701,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=False, private_mode=False)
+    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True, private_mode=False)
 
 
 if __name__ == "__main__":
