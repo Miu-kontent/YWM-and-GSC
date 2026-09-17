@@ -1490,6 +1490,7 @@ function copyTable(scriptId) {
 // ======================== TOAST ========================
 
 function showToast(msg, type = 'info') {
+    console.log(`[toast:${type}] ${msg}`);
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = msg;
@@ -1500,7 +1501,8 @@ function showToast(msg, type = 'info') {
         box-shadow: var(--shadow); animation: slideIn 0.3s ease;
     `;
     document.body.appendChild(toast);
-    setTimeout(() => { toast.style.animation = 'slideOut 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
+    const duration = type === 'error' ? 7000 : 3000;
+    setTimeout(() => { toast.style.animation = 'slideOut 0.3s ease'; setTimeout(() => toast.remove(), 300); }, duration);
 }
 
 const style = document.createElement('style');

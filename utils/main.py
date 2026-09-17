@@ -429,7 +429,7 @@ class Api:
         TOKEN_SELECTOR = ".verification-code-flow-token-output"
         poll_id = 88888
         try:
-            ws = websocket.create_connection(ws_url, timeout=10)
+            ws = websocket.create_connection(ws_url, timeout=10, suppress_origin=True)
         except Exception as e:
             raise RuntimeError(f"Ошибка подключения WebSocket CDP: {e}")
         token = ""
@@ -701,7 +701,7 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=False, private_mode=False)
+    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=True, private_mode=False)
 
 
 if __name__ == "__main__":
