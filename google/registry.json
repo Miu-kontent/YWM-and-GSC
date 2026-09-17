@@ -107,7 +107,7 @@
                     "script": "gsc_delete_sites",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для удаления"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -215,7 +215,7 @@
                     "script": "gsc_delete_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Пусто = все сайты из GSC)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления сайтмапа (Пусто = все сайты из GSC)"},
                         {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа к удалению"}
                     ],
                     "layout": {

@@ -201,9 +201,8 @@ select.form-control {
 }
 .export-group:hover { border-color: var(--accent); }
 .export-group input { cursor: pointer; }
-.align-right .form-control { width: auto; height: 41px; padding: 0 12px; font-size: 14px; }
+.align-right .form-control { width: auto; height: 41px; font-size: 14px; }
 .align-right input.form-control { width: 260px; max-width: 40vw; }
-.align-right select.form-control { min-width: 340px; }
 .table tbody:empty::after {
     content: 'Нет данных';
     display: block;

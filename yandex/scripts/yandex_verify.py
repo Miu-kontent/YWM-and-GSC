@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import requests
+from urllib.parse import quote, urlparse
 
 DEBUG = False
 
@@ -38,7 +39,6 @@ def normalize_host(url):
     url = url.strip()
     if '://' not in url:
         url = 'http://' + url
-    from urllib.parse import urlparse
     parsed = urlparse(url)
     return (parsed.hostname or '').lower()
 
@@ -135,21 +135,164 @@ def get_verification_status(headers, user_id, host_id):
     return state, body if isinstance(body, dict) else None
 
 
+def emit_table_row(site, status):
+    print(f'__TABLE_ROW__:{json.dumps({"cells": [site, status]}, ensure_ascii=False)}')
+
+
+def normalize_domain(url):
+    url = url.strip()
+    if '://' not in url:
+        url = 'http://' + url
+    parsed = urlparse(url)
+    return (parsed.hostname or '').rstrip('.').lower()
+
+
+def verify_via_browser(sites):
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print('❌ Не установлен playwright. Выполните: pip install -r requirements.txt')
+        return
+
+    CDP_URL = 'http://127.0.0.1:9229'
+    total = len(sites)
+    confirmed = 0
+    already_verified = 0
+    not_found = 0
+    failed = 0
+
+    try:
+        with sync_playwright() as p:
+            try:
+                browser = p.chromium.connect_over_cdp(CDP_URL)
+            except Exception:
+                print('⚠️  Браузер не запущен или отключён порт 9229.')
+                return
+
+            if not browser.contexts:
+                print('❌ Не найдено ни одного контекста браузера')
+                browser.close()
+                return
+
+            page = browser.contexts[0].new_page()
+
+            for i, site in enumerate(sites, 1):
+                print(f'🔄 [{i}/{total}] {site}')
+
+                try:
+                    domain = normalize_domain(site)
+                    if not domain:
+                        raise ValueError('пустой домен')
+
+                    exact_search = f'https://{domain}'
+                    url = f'https://webmaster.yandex.ru/sites/?page=1&hostnameFilter={quote(exact_search, safe="")}'
+
+                    log(f'goto: {url}')
+                    last_exc = None
+                    for attempt in range(2):
+                        try:
+                            page.goto(url, wait_until='domcontentloaded', timeout=60000)
+                            last_exc = None
+                            break
+                        except Exception as e:
+                            last_exc = e
+                            page.wait_for_timeout(2000)
+                    if last_exc:
+                        raise last_exc
+
+                    page.wait_for_timeout(3000)
+
+                    is_not_found = page.evaluate(
+                        "() => document.body.innerText.includes('Сайтов по заданным критериям не найдено')"
+                    )
+                    if is_not_found:
+                        not_found += 1
+                        print(f'   📭 Сайт не найден в панели ЯВМ.')
+                        emit_table_row(site, 'ℹ️ Не найден в ЯВМ')
+                        continue
+
+                    clicked_first = page.evaluate(
+                        "() => {"
+                        "  const b = Array.from(document.querySelectorAll('button, a'))"
+                        "    .find(x => x.innerText.toLowerCase().includes('подтвердить права'));"
+                        "  if (b) { b.click(); return true; }"
+                        "  return false;"
+                        "}"
+                    )
+
+                    if not clicked_first:
+                        already_verified += 1
+                        print(f'   ✅ Кнопка "Подтвердить права" не найдена (сайт уже подтверждён).')
+                        emit_table_row(site, '⭐ Подтверждён ранее')
+                        continue
+
+                    print(f'   ⏳ Нажата "Подтвердить права". Жду загрузки...')
+                    page.wait_for_timeout(4000)
+
+                    clicked_second = page.evaluate(
+                        "() => {"
+                        "  const b = Array.from(document.querySelectorAll('button'))"
+                        "    .find(x => x.innerText.trim() === 'Подтвердить');"
+                        "  if (b) { b.click(); return true; }"
+                        "  return false;"
+                        "}"
+                    )
+
+                    if not clicked_second:
+                        failed += 1
+                        print(f'   ❌ Вторая кнопка "Подтвердить" не найдена.')
+                        emit_table_row(site, '❌ Кнопка "Подтвердить" не найдена')
+                        continue
+
+                    print(f'   🎉 Нажата "Подтвердить". Жду появления статуса "Владелец" (до 20 сек)...')
+                    is_verified = False
+                    for attempt in range(10):
+                        page.wait_for_timeout(2000)
+                        is_verified = page.evaluate("() => document.body.innerText.includes('Владелец')")
+                        if is_verified:
+                            break
+                        print(f'   ⏳ Жду... (попытка {attempt + 1}/10)')
+
+                    if is_verified:
+                        confirmed += 1
+                        print(f'   ✅ Статус "Владелец" обнаружен!')
+                        emit_table_row(site, '✅ Подтверждено')
+                    else:
+                        failed += 1
+                        print(f'   ⚠️ Кнопка нажата, но статус "Владелец" так и не появился.')
+                        emit_table_row(site, '❌ Статус "Владелец" не появился (20с)')
+
+                except Exception as e:
+                    failed += 1
+                    log(f'  Ошибка: {e}')
+                    print(f'   🚨 Ошибка: {e}')
+                    emit_table_row(site, f'❌ {str(e)[:150]}')
+
+            page.close()
+            browser.close()
+
+    except Exception as e:
+        print(f'⚠️  Ошибка браузерного режима: {e}')
+        return
+
+    print()
+    summary = {
+        "Метод": "Browser",
+        "Всего": total,
+        "Подтверждено": confirmed,
+        "Уже подтверждены": already_verified,
+        "Не найдено в ЯВМ": not_found,
+        "Ошибок": failed
+    }
+    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+    print('__TABLE_DONE__:{}')
+
+
 def main():
     config = load_config()
     script_data = load_script_data()
 
-    token = config.get('oauth_token')
-    if not token:
-        print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
-        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
-        return
-
-    user_id = config.get('user_id')
-    if not user_id:
-        print('⚠️  Для запуска скрипта не хватает данных: user_id')
-        print('ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить')
-        return
+    mode = str(script_data.get('mode', 'api') or 'api').strip().lower()
 
     links_raw = script_data.get('links', '')
     if isinstance(links_raw, str):
@@ -161,6 +304,25 @@ def main():
 
     if not sites:
         print('❌ Нет сайтов для подтверждения!')
+        return
+
+    if mode == 'browser':
+        print(f'ℹ️  Способ: браузер (CDP 9229)')
+        print(f'ℹ️  Сайтов к подтверждению: {len(sites)}')
+        verify_via_browser(sites)
+        return
+
+    # --- API-режим ---
+    token = config.get('oauth_token')
+    if not token:
+        print('⚠️  Для запуска скрипта не хватает данных: oauth_token')
+        print('ℹ️  Получите токен на вкладке Яндекс → Ключи → Получить')
+        return
+
+    user_id = config.get('user_id')
+    if not user_id:
+        print('⚠️  Для запуска скрипта не хватает данных: user_id')
+        print('ℹ️  Получите user_id на вкладке Яндекс → Ключи → Получить')
         return
 
     headers = {'Authorization': f'OAuth {token}'}
@@ -303,6 +465,7 @@ def main():
 
     print()
     summary = {
+        "Метод": "API",
         "Всего": len(sites),
         "Уже подтверждены": already_verified,
         "Подтверждено": newly_verified,

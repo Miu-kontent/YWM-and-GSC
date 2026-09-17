@@ -116,8 +116,13 @@
                     "description": "Подтверждение прав",
                     "script": "yandex_verify",
                     "type": "api",
+                    "modes": ["API", "Browser"],
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения (Пусто = все сайты из Вебмастера)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для подтверждения (Пусто = все сайты из Вебмастера. Выбор метода ниже)"},
+                        {"name": "mode", "type": "select", "label": "Способ подтверждения", "options": [
+                            {"value": "api", "label": "Метод - API"},
+                            {"value": "browser", "label": "Метод - браузер"}
+                        ]}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -131,11 +136,13 @@
                         ],
                         "summaryRows": [
                             {"key": "Всего", "depends": "always"},
-                            {"key": "Подтверждены ранее", "depends": "always"},
+                            {"key": "Метод", "depends": "always"},
+                            {"key": "Уже подтверждены", "depends": "always"},
                             {"key": "Подтверждено", "depends": "always"},
                             {"key": "  через META_TAG", "depends": "always"},
                             {"key": "  через HTML_FILE", "depends": "always"},
                             {"key": "  через DNS", "depends": "always"},
+                            {"key": "Не найдено в ЯВМ", "depends": "always"},
                             {"key": "Ошибок", "depends": "always"}
                         ]
                     }
@@ -178,7 +185,7 @@
                         {"name": "links", "type": "textarea", "label": "Сайты (Пусто = проверка)"},
                         {"name": "city", "type": "textarea", "label": "Города (Пусто = проверка)"}
                     ],
-"layout": {
+                    "layout": {
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,
@@ -186,7 +193,7 @@
                         "inputColumns": 2,
                         "summaryLabel": "Результаты по регионам",
                         "summaryPlaceholder": ["Сайтов", "Путь контактов", "Добавлено", "На проверке", "Добавлено ранее", "Ошибок"],
-"columns": [
+                        "columns": [
                             {"depends": "always", "label": "Сайт", "width": "200px"},
                             {"depends": "always", "label": "Город", "width": "150px"},
                             {"depends": "always", "label": "Путь к контактам", "width": "250px"},
@@ -196,8 +203,8 @@
                 },
                 {
                     "id": "checklist",
-                    "name": "Рекомендации и ошибки",
-                    "description": "Проверка ошибок и рекомендаций",
+                    "name": "Рекоменд. и ошибки",
+                    "description": "Проверка ошибок и рекоменд.",
                     "script": "yandex_checklist",
                     "type": "browser",
                     "port": 9229,

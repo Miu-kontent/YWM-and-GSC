@@ -562,6 +562,22 @@ function renderServicePage(service) {
 
 let activeCategory = { yandex: null, google: null };
 
+function subModes(sub) {
+    return Array.isArray(sub.modes) && sub.modes.length ? sub.modes : [sub.type === 'api' ? 'API' : 'Browser'];
+}
+
+function badgesInlineHtml(sub) {
+    return subModes(sub).map(m =>
+        `<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px;">${m}</span>`
+    ).join('');
+}
+
+function badgesHeaderHtml(sub) {
+    return subModes(sub).map(m =>
+        `<span class="badge badge--api" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${m}</span>`
+    ).join('');
+}
+
 function renderCategoryNav(service, registry) {
     const container = document.getElementById(`${service}-category-nav`);
     if (!container) return;
@@ -590,7 +606,7 @@ function renderCategoryNav(service, registry) {
                 
 
                 const scriptBadge = sub.script
-                    ? `<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px;">${sub.type === 'api' ? 'API' : 'Browser'}</span>`
+                    ? badgesInlineHtml(sub)
                     : '<span style="font-size:10px; padding:1px 5px; border-radius:3px; background:var(--border-color); margin-left:6px; opacity:0.5;">Планируется</span>';
 
                 item.innerHTML = `
@@ -961,7 +977,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
             <div class="card__header" style="justify-content: space-between;">
                 <div style="display:flex; gap:8px; align-items:center;">
                     <span>${subcategory.name || scriptName}</span>
-                    <span class="badge badge--api" style="font-size:10px; padding:2px 6px; border-radius:4px; background:var(--border-color);">${subcategory.type === 'api' ? 'API' : 'Browser'}</span>
+                    ${badgesHeaderHtml(subcategory)}
                     <span style="font-size:11px; color:var(--text-muted);">(${scriptName})</span>
                 </div>
             </div>
