@@ -53,7 +53,7 @@
                     "script": "gsc_add_sites",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Пусто = все сайты из GSC)"}
+                        {"name": "links", "type": "textarea", "label": "Сайты для добавления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -183,7 +183,7 @@
                     "script": "gsc_resend_sitemap",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (Выбрать режим ниже)"},
+                        {"name": "links", "type": "textarea", "label": "Сайты для переотправки (Пусто = все сайты из GSC. Выбрать режим ниже)"},
                         {"name": "mode", "type": "select", "label": "Способ переотправки", "options": [
                             {"value": "submit", "label": "Переотправка"},
                             {"value": "delete_and_submit", "label": "Удаление + добавление"}
@@ -216,7 +216,7 @@
                     "type": "api",
                     "fields": [
                         {"name": "links", "type": "textarea", "label": "Сайты для удаления сайтмапа (Пусто = все сайты из GSC)"},
-                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа к удалению"}
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа к удалению", "placeholder": "Например: /sitemap/"}
                     ],
                     "layout": {
                         "hideSave": true,

@@ -717,6 +717,7 @@ function resolveField(field) {
         name: field.name,
         type: field.type || 'textarea',
         label: field.label || field.name,
+        placeholder: field.placeholder || '',
         options: field.options || []
     };
 }
@@ -767,9 +768,15 @@ function renderFieldInput(field, scriptId, savedData) {
             if (Array.isArray(val)) textVal = val.join('\n');
             else if (val && typeof val === 'object') textVal = JSON.stringify(val, null, 2);
             else textVal = val;
+            const linksPlaceholder = 'Введите список сайтов (с или без протокола):\nsite1.ru\nhttps://site2.ru';
+            const fieldPlaceholders = {
+                links: linksPlaceholder,
+                city: 'Введите список городов'
+            };
+            const placeholder = f.placeholder || fieldPlaceholders[f.name] || `Введите ${f.name}...`;
             return `<div class="form-group">
                 <label class="form-label">${f.label}</label>
-                <textarea class="form-control" id="${id}" placeholder="Введите ${f.name}...">${escHtml(textVal)}</textarea>
+                <textarea class="form-control" id="${id}" placeholder="${escHtml(placeholder)}">${escHtml(textVal)}</textarea>
             </div>`;
     }
 }
@@ -782,7 +789,7 @@ function renderInlineField(field, scriptId, savedData) {
         ? `<select class="form-control" id="${id}" title="${escHtml(f.label)}">${f.options.map(o =>
             `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
         ).join('')}</select>`
-        : `<input type="text" class="form-control" id="${id}" value="${escHtml(val)}" placeholder="${escHtml(f.label)}" title="${escHtml(f.label)}">`;
+        : `<input type="text" class="form-control" id="${id}" value="${escHtml(val)}" placeholder="${escHtml(f.placeholder || f.label)}" title="${escHtml(f.label)}">`;
     return control;
 }
 

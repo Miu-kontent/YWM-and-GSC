@@ -94,21 +94,14 @@ def main():
     else:
         sites = []
 
-    if not sites and script_data.get('mode', 'keep') != 'keep':
-        print('❌ В режиме "удалить только из списка" список сайтов не может быть пустым!')
-        return
-
-    mode = script_data.get('mode', 'keep')
-    if mode not in ('keep', 'delete'):
-        mode = 'keep'
-
     if not sites:
-        print('ℹ️  Список пуст — в режиме "оставить только из списка" будут удалены ВСЕ зеркала счётчика (останется основной сайт)')
+        print('❌ Для запуска скрипта обязателен список сайтов для удаления!')
+        return
 
     headers = {"Authorization": f"OAuth {token}"}
 
     print(f'ℹ️  Счётчик: {metric_id}')
-    print(f'ℹ️  Режим: {"оставить только из списка, остальные удалить" if mode == "keep" else "удалить только указанные в списке"}')
+    print(f'ℹ️  Режим: удалить только указанные в списке')
     print(f'ℹ️  Сайтов в списке: {len(sites)}')
 
     user_keys = set(normalize_host(s) for s in sites)
@@ -136,7 +129,7 @@ def main():
 
     for m in mirrors:
         key = mirror_key(m)
-        should_delete = (key in user_keys) if mode == 'delete' else (key not in user_keys)
+        should_delete = (key in user_keys)
         (to_delete if should_delete else kept).append(m)
 
     invalid_kept = [

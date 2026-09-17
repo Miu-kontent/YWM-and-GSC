@@ -13,15 +13,11 @@ DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
 debug_profiles/*
-test.py
 Launcher.cs
-API вебмастера.txt
-API Метрики.txt
-API GSC.txt
 # Playwright
 playwright-report/
 test-results/
 *.trace.zip
-# Старые JS-скрипты (история, миграция на Python)
+# Старые JS-скрипты
 yandex/scripts/*.js
 google/scripts/*.js

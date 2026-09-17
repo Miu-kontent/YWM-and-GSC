@@ -309,7 +309,7 @@
                     "type": "api",
                     "fields": [
                         {"name": "links", "type": "textarea", "label": "Сайты для удаления сайтмапа (Пусто = все сайты из Вебмастера)"},
-                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа для удаления"}
+                        {"name": "sitemap_path", "type": "text", "label": "Путь сайтмапа для удаления", "placeholder": "Например: /sitemap/"}
                     ],
                     "layout": {
                         "hideSave": true,
@@ -430,11 +430,7 @@
                     "script": "yandex_metrika_delete_mirrors",
                     "type": "api",
                     "fields": [
-                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Выбрать режим ниже)"},
-                        {"name": "mode", "type": "select", "label": "Режим удаления", "options": [
-                            {"value": "keep", "label": "Оставить только список, остальные удалить"},
-                            {"value": "delete", "label": "Удалить только указанные в списке"}
-                        ]}
+                        {"name": "links", "type": "textarea", "label": "Сайты для удаления (Обязательный блок)"}
                     ],
                     "layout": {
                         "hideSave": true,
