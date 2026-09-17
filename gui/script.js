@@ -26,6 +26,7 @@ window.addEventListener('pywebviewready', () => {
                     addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
                     document.getElementById('local-ver').textContent = updateCheck.local_version;
                     document.getElementById('remote-ver').textContent = updateCheck.remote_version;
+                    loader.classList.add('hidden');
                     setTimeout(() => { versionOverlay.classList.remove('hidden'); }, 500);
                 } else {
                     addLoaderLog(`✅ Версия актуальна (${updateCheck.local_version})`);
@@ -53,8 +54,10 @@ window.addEventListener('pywebviewready', () => {
 async function doUpdate() {
     const versionOverlay = document.getElementById('version-overlay');
     const loaderStatus = document.getElementById('loader-status');
+    const loader = document.getElementById('loader');
 
     if (versionOverlay) versionOverlay.classList.add('hidden');
+    if (loader) loader.classList.remove('hidden');
     if (loaderStatus) loaderStatus.innerText = "Скачивание и установка обновления...";
 
     const res = await window.pywebview.api.update_app();
