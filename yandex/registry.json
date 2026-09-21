@@ -15,6 +15,7 @@
                         {"name": "links", "type": "textarea", "label": "Сайты для выгрузки(Пусто = все сайты из Вебмастера)"}
                     ],
                     "layout": {
+                        "copySites": true,
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,
@@ -57,6 +58,7 @@
                         {"name": "links", "type": "textarea", "label": "Сайты (Пусто = все сайты из Метрики)"}
                     ],
                     "layout": {
+                        "copySites": true,
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,

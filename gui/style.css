@@ -23,14 +23,16 @@
     --input-focus-shadow: rgba(223, 177, 91, 0.3);
     
     /* Статусы (Успех, Ошибка, Инфо) */
-    --status-error-text: #f5c6cb;
+    --status-error-text: #e06c75;
     --status-success-text: #a5d6a7;
-    --status-warning-text: #ffeeba;
-    --status-info-text: #dfb15b;
+    --status-warning-text: #e6a23c;
+    --status-info-text: #56b6c2;
 
     /* Теневые и системные элементы */
     --shadow: 0 4px 20px rgba(0,0,0,0.4);
     --overlay-bg: rgba(0, 0, 0, 0.7);
+
+    --status-running: #dfb15b;
 }
 
 .light-theme {
@@ -69,6 +71,8 @@
 
     /* Мягкая тень, чтобы карточки "парили" над серым фоном */
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+
+    --status-running: #2563eb;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -113,10 +117,12 @@ body {
     padding: 10px 15px; border: none; border-radius: 8px;
     font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;
 }
-.btn--primary { background: var(--btn-bg); color: var(--btn-text); }
+.btn--primary { background: var(--btn-bg); color: var(--btn-text); border: 1px solid transparent; }
 .btn--primary:hover { background: var(--btn-hover); }
+.btn--run { min-width: 150px; white-space: nowrap; }
 .btn--secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
 .btn--secondary:hover { border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn--small { padding: 8px 16px; font-size: 13px; }
 .btn--icon { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
 .btn--icon:hover { border-color: var(--accent); background: var(--bg-body); color: var(--text-main); }
@@ -181,6 +187,8 @@ select.form-control {
     border-top: 1px solid var(--border-color);
     z-index: 1;
 }
+.table-actions__left { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.table-actions__right { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-left: auto; }
 
 /* Группы экспорта (чекбоксы) */
 .export-groups { display: flex; gap: 8px; align-items: center; margin-left: 16px; flex-wrap: wrap; }
@@ -374,14 +382,14 @@ select.form-control {
 
 /* --- Статусные рамки скриптов и категорий --- */
 @keyframes statusPulse {
-    0%, 100% { box-shadow: 0 0 0 1px var(--status-info-text), 0 0 4px rgba(0,0,0,0); }
-    50%      { box-shadow: 0 0 0 1px var(--status-info-text), 0 0 12px var(--status-info-text); }
+    0%, 100% { box-shadow: 0 0 0 1px var(--status-running), 0 0 4px rgba(0,0,0,0); }
+    50%      { box-shadow: 0 0 0 1px var(--status-running), 0 0 12px var(--status-running); }
 }
 
 .script-running,
 .cat-running,
 .sub-running {
-    border-color: var(--status-info-text) !important;
+    border-color: var(--status-running) !important;
     animation: statusPulse 1.8s ease-in-out infinite;
 }
 

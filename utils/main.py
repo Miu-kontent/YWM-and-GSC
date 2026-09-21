@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+import socket
 import threading
 import subprocess
 import webview
@@ -82,36 +83,55 @@ class Api:
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
         self.running_processes = {}
+        self.stopped_scripts = set()
 
-        self.clean_browser_cache()
+    def _devtools_info(self, port):
+        """CDP-инфо (dict), если на порту отвечает реальный Chrome DevTools, иначе None.
+
+        Строгая проверка: ответ должен быть валидным JSON с ключом "Browser".
+        Это исключает ложное срабатывание, если порт занят произвольным HTTP-сервером
+        или процессом-зомби, который не является отладочным Chrome.
+        """
+        try:
+            r = requests.get(f"http://127.0.0.1:{port}/json/version", timeout=2)
+            if r.status_code != 200:
+                return None
+            data = r.json()
+            if isinstance(data, dict) and data.get("Browser"):
+                return data
+        except Exception:
+            pass
+        return None
 
     def _browser_is_running(self, port):
-        try:
-            r = requests.get(f"http://127.0.0.1:{port}/json/version", timeout=1)
-            return r.status_code == 200
-        except Exception:
-            return False
+        return self._devtools_info(port) is not None
 
     def clean_browser_cache(self):
-        """Точечная очистка кэша дебаг-профилей при старте. Входы сохраняются.
+        """Точечная очистка кэша дебаг-профилей. Входы сохраняются.
 
         Удаляются только перекачиваемые кэши/компоненты (Cache, Code Cache, CRX,
         Safe Browsing и т.п.) — Cookies/Local Storage/Login Data не трогаются.
         Если браузер профиля уже запущен (порт открыт) — профиль пропускается,
         чтобы не удалять файлы под работающим Chrome.
+
+        Вызывается из GUI после загрузки окна (а не в __init__), чтобы не задерживать
+        старт. Возвращает список сообщений для лога GUI.
         """
+        logs = []
         profiles = (
             ("yandex", "chrome-debug-yandex", 9229),
             ("google", "chrome-debug-google", 9227),
         )
         for name, profile_name, port in profiles:
             if self._browser_is_running(port):
-                print(f"[cleanup] {name}: браузер запущен (порт {port}), очистку профиля пропускаю")
+                logs.append(f"ℹ️ Браузер {name} запущен (порт {port}), кэш не трогаю")
                 continue
             profile_dir = os.path.join(self.base_dir, "debug_profiles", profile_name)
             if not os.path.isdir(profile_dir):
+                logs.append(f"ℹ️ Профиль {name} не найден ({profile_name})")
                 continue
             removed = 0
+            skipped = 0
             for rel in BROWSER_CACHE_ITEMS:
                 target = os.path.join(profile_dir, rel.replace("/", os.sep))
                 if not os.path.exists(target):
@@ -122,9 +142,10 @@ class Api:
                     else:
                         os.remove(target)
                     removed += 1
-                except Exception as e:
-                    print(f"[cleanup] {name}: не удалось удалить {rel}: {e}")
-            print(f"[cleanup] {name}: очищено элементов кэша: {removed}")
+                except Exception:
+                    skipped += 1
+            logs.append(f"✅ {name}: очищено элементов кэша: {removed}{', не удалось: ' + str(skipped) if skipped else ''}")
+        return logs
 
     def get_local_version(self):
         if os.path.exists(self.version_path):
@@ -311,12 +332,30 @@ class Api:
 
     def check_browser(self, service):
         port = 9229 if service == "yandex" else 9227
+        return {"success": True, "running": self._browser_is_running(port)}
+
+    def close_browser(self, service):
+        """Мягкое закрытие отладочного браузера через CDP Browser.close.
+
+        Chrome завершается корректно (все процессы профиля выходят), входы в профиле
+        сохраняются, а очистка кэша при следующем старте уже не пропустится.
+        """
+        port = 9229 if service == "yandex" else 9227
+        info = self._devtools_info(port)
+        if not info:
+            return {"success": False, "message": f"Браузер {service} не запущен"}
         try:
-            import requests as req
-            r = req.get(f"http://127.0.0.1:{port}/json/version", timeout=2)
-            return {"success": True, "running": r.status_code == 200}
-        except Exception:
-            return {"success": True, "running": False}
+            ws_url = info.get("webSocketDebuggerUrl")
+            ws = websocket.create_connection(ws_url, timeout=5)
+            ws.send(json.dumps({"id": 1, "method": "Browser.close"}))
+            try:
+                ws.recv()
+            except Exception:
+                pass
+            ws.close()
+            return {"success": True, "message": f"Браузер {service} закрыт"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
 
     def launch_browser(self, service):
         port = 9229 if service == "yandex" else 9227
@@ -381,8 +420,12 @@ class Api:
                     webview.windows[0].evaluate_js(f"appendLog('{key}', {safe_text})")
             proc.stdout.close()
             proc.wait()
-            webview.windows[0].evaluate_js(f"scriptFinished('{key}', {proc.returncode})")
+            stopped = key in self.stopped_scripts
             self.running_processes.pop(key, None)
+            self.stopped_scripts.discard(key)
+            webview.windows[0].evaluate_js(
+                f"scriptFinished('{key}', {proc.returncode}, {json.dumps(stopped)})"
+            )
 
         try:
             env = os.environ.copy()
@@ -400,6 +443,30 @@ class Api:
             return {"success": True, "message": f"Скрипт {script_name} запущен"}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    def stop_script(self, service, script_name):
+        """Преждевременная остановка запущенного скрипта (жёстко, дерево процессов).
+
+        Останавливается ТОЛЬКО процесс этого скрипта — параллельно запущенные
+        другие скрипты не затрагиваются (у каждого свой PID/ключ).
+        """
+        process_key = f"{service}:{script_name}"
+        proc = self.running_processes.get(process_key)
+        if proc is None or proc.poll() is not None:
+            return {"success": False, "message": "Процесс уже завершён"}
+
+        self.stopped_scripts.add(process_key)
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                capture_output=True, check=False
+            )
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        return {"success": True, "message": "Скрипт остановлен"}
 
     def _run_yandex_script(self, script_name):
         script_path = os.path.join(self.yandex_scripts_dir, f"{script_name}.py")
@@ -778,7 +845,7 @@ def main():
         title="YWM-and-GSC",
         url=html_file,
         js_api=api,
-        width=970,
+        width=980,
         height=800,
         frameless=False,
         on_top=False,
@@ -786,7 +853,28 @@ def main():
         background_color='#121214'
     )
 
-    webview.start(icon=os.path.join(api.gui_dir, "favicon.ico"), debug=False, private_mode=False)
+    webview.start(
+        icon=os.path.join(api.gui_dir, "favicon.ico"),
+        debug=False,
+        private_mode=False,
+        http_server=True,
+        http_port=_pick_free_port()
+    )
+
+
+def _pick_free_port():
+    """Свободный порт для внутреннего HTTP-сервера GUI (http_server=True).
+
+    pywebview при private_mode=False без явного http_port использует фиксированный
+    DEFAULT_HTTP_PORT (42001) — это может упасть, если порт занят. Берём свободный
+    эфемерный порт на 127.0.0.1, чтобы GUI всегда гарантированно открывался.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+    except OSError:
+        return 42001
 
 
 if __name__ == "__main__":

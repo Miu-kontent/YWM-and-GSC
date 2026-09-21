@@ -16,6 +16,7 @@
                         {"name": "show_sitemaps", "type": "checkbox", "label": "Сайтмапы"}
                     ],
                     "layout": {
+                        "copySites": true,
                         "hideSave": true,
                         "hideLogs": true,
                         "statusRolling": true,

@@ -10,43 +10,57 @@ function onDOMReady(callback) {
 
 window.addEventListener('pywebviewready', () => {
     onDOMReady(async () => {
-        await applySavedTheme();
         const loaderStatus = document.getElementById('loader-status');
         const loader = document.getElementById('loader');
         const versionOverlay = document.getElementById('version-overlay');
+        const hideLoader = () => { if (loader) loader.classList.add('hidden'); };
 
-        loaderStatus.innerText = "Проверка обновлений...";
         try {
-            const updateCheck = await window.pywebview.api.check_updates();
-            const verLabel = document.getElementById('launcher-version');
-            if (verLabel) verLabel.innerText = `v${updateCheck.local_version}`;
+            await applySavedTheme();
+            loaderStatus.innerText = "Проверка обновлений...";
+            try {
+                const updateCheck = await window.pywebview.api.check_updates();
+                const verLabel = document.getElementById('launcher-version');
+                if (verLabel) verLabel.innerText = `v${updateCheck.local_version}`;
 
-            if (updateCheck.success) {
-                if (updateCheck.update_available) {
-                    addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
-                    document.getElementById('local-ver').textContent = updateCheck.local_version;
-                    document.getElementById('remote-ver').textContent = updateCheck.remote_version;
-                    setTimeout(() => { versionOverlay.classList.remove('hidden'); }, 500);
+                if (updateCheck.success) {
+                    if (updateCheck.update_available) {
+                        addLoaderLog(`⚠️ Доступна версия ${updateCheck.remote_version}`);
+                        document.getElementById('local-ver').textContent = updateCheck.local_version;
+                        document.getElementById('remote-ver').textContent = updateCheck.remote_version;
+                        setTimeout(() => { versionOverlay.classList.remove('hidden'); }, 500);
+                    } else {
+                        addLoaderLog(`✅ Версия актуальна (${updateCheck.local_version})`);
+                    }
                 } else {
-                    addLoaderLog(`✅ Версия актуальна (${updateCheck.local_version})`);
-                    setTimeout(() => { loader.classList.add('hidden'); }, 500);
+                    addLoaderLog(`⚠️ Не удалось проверить обновления (error_code: ${updateCheck.error_code})`);
                 }
-            } else {
-                addLoaderLog(`⚠️ Не удалось проверить обновления (error_code: ${updateCheck.error_code})`);
-                setTimeout(() => { loader.classList.add('hidden'); }, 500);
+            } catch (err) {
+                addLoaderLog(`⚠️ Не удалось проверить обновления: ${err.message}`);
+            }
+
+            loaderStatus.innerText = "Загрузка данных...";
+            addLoaderLog(`ℹ️ Загрузка ключей ...`);
+            const keysRes = await loadGlobalKeys();
+            if (keysRes) addLoaderLog(keysRes);
+            addLoaderLog(`ℹ️ Загрузка списков скриптов ...`);
+            const dataRes = await loadScriptsData();
+            if (dataRes) addLoaderLog(dataRes);
+            addLoaderLog(`ℹ️ Загрузка скриптов ...`);
+            const listsRes = await loadScriptsLists();
+            if (listsRes) addLoaderLog(listsRes);
+            addLoaderLog(`ℹ️ Очистка кэша браузеров ...`);
+            try {
+                const cleanupLogs = await window.pywebview.api.clean_browser_cache();
+                (cleanupLogs || []).forEach(l => addLoaderLog(l));
+            } catch (err) {
+                addLoaderLog(`⚠️ Ошибка очистки кэша браузеров: ${err.message}`);
             }
         } catch (err) {
-            addLoaderLog(`⚠️ Не удалось проверить обновления: ${err.message}`);
-            setTimeout(() => { loader.classList.add('hidden'); }, 500);
+            addLoaderLog(`⚠️ Ошибка инициализации: ${err.message}`);
+        } finally {
+            setTimeout(hideLoader, 500);
         }
-
-        loaderStatus.innerText = "Загрузка данных...";
-        addLoaderLog(`ℹ️ Загрузка ключей ...`);
-        await loadGlobalKeys();
-        addLoaderLog(`ℹ️ Загрузка списков скриптов ...`);
-        await loadScriptsData();
-        addLoaderLog(`ℹ️ Загрузка скриптов ...`);
-        await loadScriptsLists();
     })
 });
 
@@ -306,9 +320,11 @@ async function loadGlobalKeys() {
 
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
 
-        await Promise.all([refreshYandexAccounts(), refreshGoogleAccounts()]);
+        const [ya, ga] = await Promise.all([refreshYandexAccounts(), refreshGoogleAccounts()]);
+        return `✅ Загружено ключей (аккаунтов: Яндекс ${(ya || []).length}, Google ${(ga || []).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
+        return null;
     }
 }
 
@@ -424,8 +440,10 @@ async function loadScriptsData() {
         ]);
         window._scriptsData.yandex = yData || {};
         window._scriptsData.google = gData || {};
+        return `✅ Загружено списков скриптов (Яндекс: ${Object.keys(yData || {}).length}, Google: ${Object.keys(gData || {}).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки списков скриптов: ${err.message}`);
+        return null;
     }
 }
 
@@ -523,8 +541,10 @@ async function loadScriptsLists() {
 
         renderServicePage('yandex');
         renderServicePage('google');
+        return `✅ Загружены скрипты (Яндекс: ${(yRes.scripts || []).length}, Google: ${(gRes.scripts || []).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки скриптов: ${err.message}`);
+        return null;
     }
 }
 
@@ -1001,7 +1021,7 @@ function buildScriptPanelHtml(service, scriptName, subcategory) {
             <div class="script-body" id="${scriptId}-body">
                 ${topHtml}
                 <div class="align-right" style="justify-content: flex-start; align-items: center;">
-                    <button class="btn btn--primary" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
+                    <button class="btn btn--primary btn--run" onclick="runScript('${service}', '${scriptName}')">&#9654; Запустить</button>
                     ${saveBtn}
                     ${fieldCheckboxesHtml}
                     ${groupsHtml}
@@ -1145,14 +1165,10 @@ async function runScript(service, script) {
     const logsEl = document.getElementById(`${scriptId}-logs`);
     const reportEl = document.getElementById(`${scriptId}-report`);
     const summaryEl = document.getElementById(`${scriptId}-summary`);
-    const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
 
     runningScripts[scriptId] = true;
     setScriptUiStatus(service, script, 'running');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ Выполняется...';
-    }
+    setRunButton(scriptId, 'running');
     statusEl.textContent = 'Запуск...';
     statusEl.style.color = 'var(--accent)';
     if (logsEl) logsEl.innerHTML = '';
@@ -1182,12 +1198,54 @@ async function runScript(service, script) {
     } catch (err) {
         statusEl.textContent = `Ошибка: ${err.message}`;
         statusEl.style.color = 'var(--status-error-text)';
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = '▶ Запустить';
-        }
+        setRunButton(scriptId, 'idle');
         runningScripts[scriptId] = false;
         setScriptUiStatus(service, script, 'error');
+    }
+}
+
+async function stopScript(service, script) {
+    const scriptId = `${service}-${script}`;
+    if (!runningScripts[scriptId]) {
+        showToast('Скрипт не запущен', 'error');
+        return;
+    }
+    setRunButton(scriptId, 'stopping');
+    const statusEl = document.getElementById(`${scriptId}-status`);
+    if (statusEl) {
+        statusEl.textContent = 'Останавливается...';
+        statusEl.style.color = 'var(--status-warning-text)';
+    }
+    try {
+        const res = await window.pywebview.api.stop_script(service, script);
+        if (!res || !res.success) {
+            showToast(res ? res.message : 'Ошибка остановки', 'error');
+            setRunButton(scriptId, 'running');
+        }
+    } catch (err) {
+        showToast(`Ошибка остановки: ${err.message}`, 'error');
+        setRunButton(scriptId, 'running');
+    }
+}
+
+// Кнопка [▶ Запустить] ↔ [⏹ Остановить]: при работе та же кнопка превращается в стоп.
+function setRunButton(scriptId, state) {
+    const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
+    if (!btn) return;
+    const dashIdx = scriptId.indexOf('-');
+    const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
+    const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
+    if (state === 'running') {
+        btn.disabled = false;
+        btn.textContent = '⏹ Остановить';
+        btn.onclick = (ev) => { ev.preventDefault(); stopScript(service, script); };
+    } else if (state === 'stopping') {
+        btn.disabled = true;
+        btn.textContent = '⏹ Остановить';
+    } else {
+        btn.disabled = false;
+        btn.textContent = '▶ Запустить';
+        btn.onclick = (ev) => { ev.preventDefault(); runScript(service, script); };
     }
 }
 
@@ -1261,25 +1319,49 @@ function appendLog(key, line) {
     }
 }
 
-function scriptFinished(key, code) {
+function scriptFinished(key, code, wasStopped) {
     const scriptId = key.replace(':', '-');
     const dashIdx = scriptId.indexOf('-');
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const isError = code !== 0;
     const statusEl = document.getElementById(`${scriptId}-status`);
-    const btn = document.querySelector(`#${scriptId}-card .btn--primary`);
+
+    if (wasStopped) {
+        // Остановлено пользователем: в логах фиксируем прекращение работы,
+        // уже наработанный прогресс сохраняем в таблице и краткой сводке.
+        appendLog(key, '⏹ Работа скрипта остановлена пользователем');
+        finalizePartialReport(scriptId);
+        if (statusEl) {
+            statusEl.textContent = '⏹ Остановлен';
+            statusEl.style.color = 'var(--status-warning-text)';
+        }
+        setRunButton(scriptId, 'idle');
+        runningScripts[scriptId] = false;
+        setScriptUiStatus(service, script, null);
+        return;
+    }
 
     if (statusEl) {
         statusEl.textContent = isError ? 'Завершено с ошибкой' : 'Завершено';
         statusEl.style.color = isError ? 'var(--status-error-text)' : 'var(--status-success-text)';
     }
-    if (btn) {
-        btn.disabled = false;
-        btn.textContent = '▶ Запустить';
-    }
+    setRunButton(scriptId, 'idle');
     runningScripts[scriptId] = false;
     setScriptUiStatus(service, script, isError ? 'error' : 'success');
+}
+
+// Частичная финализация после остановки: показать уже собранные строки таблицы
+// (пост-кнопки «Копировать» и т.п.) и одну строку сводки — сколько сайтов обработано.
+function finalizePartialReport(scriptId) {
+    finalizeTable(scriptId);
+    const tbody = document.querySelector(`#${scriptId}-report tbody`);
+    const rows = tbody ? tbody.rows.length : 0;
+    const el = document.getElementById(`${scriptId}-summary`);
+    if (el) {
+        el.classList.remove('hidden');
+        el.innerHTML = `<div class="summary-line"><span class="summary-label">Обработано сайтов:</span> <span class="summary-value">${rows}</span></div>`;
+    }
 }
 
 // ======================== SUMMARY / TABLE PROTOCOL ========================
@@ -1429,7 +1511,12 @@ function ensureTableActions(scriptId) {
 
     const actions = document.createElement('div');
     actions.className = 'table-actions';
-    actions.innerHTML = `${postBtns}<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button>`;
+    const leftBtns = layout.copySites
+        ? `<button class="btn btn--secondary" onclick="copySitesColumn('${scriptId}')">📋 Копировать сайты</button>`
+        : '';
+    actions.innerHTML = `
+        ${leftBtns ? `<div class="table-actions__left">${leftBtns}</div>` : ''}
+        <div class="table-actions__right">${postBtns}<button class="btn btn--secondary" onclick="copyTable('${scriptId}')">📋 Копировать таблицу</button></div>`;
     el.appendChild(actions);
 }
 
@@ -1482,6 +1569,23 @@ function escHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function copySitesColumn(scriptId) {
+    const tbody = document.querySelector(`#${scriptId}-report tbody`);
+    if (!tbody) return;
+    const sites = [];
+    for (const row of tbody.rows) {
+        if (!row.cells.length) continue;
+        const site = row.cells[0].textContent.trim();
+        if (site && !sites.includes(site)) sites.push(site);
+    }
+    if (!sites.length) {
+        showToast('Нет сайтов для копирования', 'error');
+        return;
+    }
+    navigator.clipboard.writeText(sites.join('\n'));
+    showToast(`Скопировано сайтов: ${sites.length}`);
 }
 
 function copyTable(scriptId) {
