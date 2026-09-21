@@ -14,6 +14,48 @@ import ctypes
 
 # import webbrowser
 
+# Профили дебаг-браузеров (debug_profiles/<profile>) хранят входы/сессии (Cookies,
+# Local Storage и т.п. — их НЕ трогаем). При старте программы точечно удаляем только
+# перекачиваемые кэши и компоненты, чтобы профили не разрастались (см. clean_browser_cache).
+BROWSER_CACHE_ITEMS = (
+    "Default/Cache",
+    "Default/Code Cache",
+    "Default/GPUCache",
+    "Default/GrShaderCache",
+    "GrShaderCache",
+    "ShaderCache",
+    "component_crx_cache",
+    "extensions_crx_cache",
+    "optimization_guide_model_store",
+    "optimization_guide_model_info_cache",
+    "OptimizationGuideModelsManifest",
+    "Safe Browsing",
+    "Snapshots",
+    "WasmTtsEngine",
+    "segmentation_platform",
+    "OnDeviceHeadSuggestModel",
+    "hyphen-data",
+    "ZxcvbnData",
+    "PKIMetadata",
+    "OptimizationHints",
+    "Subresource Filter",
+    "Crowd Deny",
+    "SafetyTips",
+    "CertificateRevocation",
+    "ActorSafetyLists",
+    "TrustTokenKeyCommitments",
+    "FirstPartySetsPreloaded",
+    "PrivacySandboxAttestationsPreloaded",
+    "MEIPreload",
+    "FileTypePolicies",
+    "AmountExtractionHeuristicRegexes",
+    "CaptchaProviders",
+    "OriginTrials",
+    "SSLErrorAssistant",
+    "RecoveryImproved",
+    "GPUPersistentCache",
+)
+
 class Api:
     def __init__(self):
         if getattr(sys, 'frozen', False):
@@ -40,6 +82,49 @@ class Api:
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
         self.running_processes = {}
+
+        self.clean_browser_cache()
+
+    def _browser_is_running(self, port):
+        try:
+            r = requests.get(f"http://127.0.0.1:{port}/json/version", timeout=1)
+            return r.status_code == 200
+        except Exception:
+            return False
+
+    def clean_browser_cache(self):
+        """Точечная очистка кэша дебаг-профилей при старте. Входы сохраняются.
+
+        Удаляются только перекачиваемые кэши/компоненты (Cache, Code Cache, CRX,
+        Safe Browsing и т.п.) — Cookies/Local Storage/Login Data не трогаются.
+        Если браузер профиля уже запущен (порт открыт) — профиль пропускается,
+        чтобы не удалять файлы под работающим Chrome.
+        """
+        profiles = (
+            ("yandex", "chrome-debug-yandex", 9229),
+            ("google", "chrome-debug-google", 9227),
+        )
+        for name, profile_name, port in profiles:
+            if self._browser_is_running(port):
+                print(f"[cleanup] {name}: браузер запущен (порт {port}), очистку профиля пропускаю")
+                continue
+            profile_dir = os.path.join(self.base_dir, "debug_profiles", profile_name)
+            if not os.path.isdir(profile_dir):
+                continue
+            removed = 0
+            for rel in BROWSER_CACHE_ITEMS:
+                target = os.path.join(profile_dir, rel.replace("/", os.sep))
+                if not os.path.exists(target):
+                    continue
+                try:
+                    if os.path.isdir(target):
+                        shutil.rmtree(target, ignore_errors=True)
+                    else:
+                        os.remove(target)
+                    removed += 1
+                except Exception as e:
+                    print(f"[cleanup] {name}: не удалось удалить {rel}: {e}")
+            print(f"[cleanup] {name}: очищено элементов кэша: {removed}")
 
     def get_local_version(self):
         if os.path.exists(self.version_path):

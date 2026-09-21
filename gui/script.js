@@ -720,8 +720,15 @@ function resolveField(field) {
         type: field.type || 'textarea',
         label: field.label || field.name,
         placeholder: field.placeholder || '',
+        default: field.default || '',
         options: field.options || []
     };
+}
+
+function effectiveSelectValue(options, val, def) {
+    if (val && options.some(o => o.value === val)) return val;
+    if (def && options.some(o => o.value === def)) return def;
+    return options.length ? options[0].value : '';
 }
 
 function renderFieldInput(field, scriptId, savedData) {
@@ -746,8 +753,9 @@ function renderFieldInput(field, scriptId, savedData) {
                 <input type="text" class="form-control" id="${id}" value="${val}" placeholder="${f.label}">
             </div>`;
         case 'select':
+            const selVal = effectiveSelectValue(f.options, val, f.default);
             const options = f.options.map(o =>
-                `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+                `<option value="${o.value}" ${selVal === o.value ? 'selected' : ''}>${o.label}</option>`
             ).join('');
             return `<div class="form-group">
                 <label class="form-label">${f.label}</label>
@@ -789,7 +797,7 @@ function renderInlineField(field, scriptId, savedData) {
     const id = `${scriptId}-${f.name}`;
     const control = f.type === 'select'
         ? `<select class="form-control" id="${id}" title="${escHtml(f.label)}">${f.options.map(o =>
-            `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`
+            `<option value="${o.value}" ${effectiveSelectValue(f.options, val, f.default) === o.value ? 'selected' : ''}>${o.label}</option>`
         ).join('')}</select>`
         : `<input type="text" class="form-control" id="${id}" value="${escHtml(val)}" placeholder="${escHtml(f.placeholder || f.label)}" title="${escHtml(f.label)}">`;
     return control;

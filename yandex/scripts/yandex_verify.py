@@ -135,6 +135,30 @@ def get_verification_status(headers, user_id, host_id):
     return state, body if isinstance(body, dict) else None
 
 
+def enumerate_all_sites(headers, user_id):
+    """Все домены Вебмастера (без зеркал). Возвращает (список, ошибка)."""
+    status, hosts_data, err = api_request(
+        'GET',
+        f'https://api.webmaster.yandex.net/v4/user/{user_id}/hosts',
+        headers
+    )
+    if err:
+        return None, err
+    if status != 200:
+        msg = hosts_data.get('error_message', f'HTTP {status}') if isinstance(hosts_data, dict) else f'HTTP {status}'
+        return None, msg
+    hosts = hosts_data.get('hosts', []) if isinstance(hosts_data, dict) else []
+    sites = []
+    for h in hosts:
+        if h.get('main_mirror'):
+            continue
+        host_url = h.get('unicode_host_url') or h.get('ascii_host_url') or ''
+        domain = normalize_host(host_url)
+        if domain and domain not in sites:
+            sites.append(domain)
+    return sites, None
+
+
 def emit_table_row(site, status):
     print(f'__TABLE_ROW__:{json.dumps({"cells": [site, status]}, ensure_ascii=False)}')
 
@@ -303,8 +327,21 @@ def main():
         sites = []
 
     if not sites:
-        print('❌ Нет сайтов для подтверждения!')
-        return
+        print('ℹ️  Поле «Сайты» пустое — работаю со всеми сайтами из Вебмастера...')
+        token = config.get('oauth_token')
+        user_id = config.get('user_id')
+        if not token or not user_id:
+            print('⚠️  Поле «Сайты» пустое — список всех сайтов получить нельзя.')
+            print('ℹ️  Авторизуйте аккаунт (кнопка «Авторизоваться» на дашборде) или заполните список сайтов.')
+            return
+        sites, err = enumerate_all_sites({'Authorization': f'OAuth {token}'}, user_id)
+        if err:
+            print(f'⚠️  Ошибка получения списка сайтов: {err}')
+            return
+        if not sites:
+            print('❌ Нет сайтов для подтверждения!')
+            return
+        print(f'ℹ️  Сайтов в Вебмастере: {len(sites)}')
 
     if mode == 'browser':
         print(f'ℹ️  Способ: браузер (CDP 9229)')

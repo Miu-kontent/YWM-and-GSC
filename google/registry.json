@@ -184,7 +184,7 @@
                     "type": "api",
                     "fields": [
                         {"name": "links", "type": "textarea", "label": "Сайты для переотправки (Пусто = все сайты из GSC. Выбрать режим ниже)"},
-                        {"name": "mode", "type": "select", "label": "Способ переотправки", "options": [
+                        {"name": "mode", "type": "select", "label": "Способ переотправки", "default": "submit", "options": [
                             {"value": "submit", "label": "Переотправка"},
                             {"value": "delete_and_submit", "label": "Удаление + добавление"}
                         ]}
