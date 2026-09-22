@@ -116,6 +116,7 @@ def main():
     print(f"ℹ️  Сайтов обрабатывается: {total}")
 
     deleted = not_found = errors = 0
+    domains = 0
     processed = 0
 
     for site_url, entry in targets:
@@ -131,6 +132,11 @@ def main():
         if level == 'siteUnverifiedUser':
             errors += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "❌ Не подтверждён"]}, ensure_ascii=False)}')
+            continue
+
+        if site_url.lower().startswith('sc-domain:'):
+            domains += 1
+            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "ℹ️ Доменный ресурс"]}, ensure_ascii=False)}')
             continue
 
         sitemap_url = f"{site_url.rstrip('/')}{sitemap_path}"
@@ -175,6 +181,7 @@ def main():
         "Удалено": deleted,
         "Не найдено": not_found,
         "Ошибок": errors,
+        "Доменных ресурсов": domains,
     }
     print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
     print('__TABLE_DONE__:{}')

@@ -323,12 +323,13 @@ def main():
                 browser.close()
                 return
 
+            page = browser.contexts[0].new_page()
+
             for i, domain in enumerate(sites, 1):
                 city = cities[i - 1] if mode == 'add' else ''
                 contact_url = f'https://{domain}/{contact_path}/' if mode == 'add' else '-'
                 print(f'🔄 [{i}/{total}] {domain}')
 
-                page = browser.contexts[0].new_page()
                 try:
                     last_err = None
                     for attempt in range(1, 4):
@@ -433,10 +434,6 @@ def main():
                     reason = str(e)[:90]
                     print(f'__TABLE_ROW__:{json.dumps({"cells": [domain, city or "-", contact_url, f"❌ {reason}"]}, ensure_ascii=False)}')
                 finally:
-                    try:
-                        page.close()
-                    except Exception:
-                        pass
                     time.sleep(0.5)
 
     except Exception as e:

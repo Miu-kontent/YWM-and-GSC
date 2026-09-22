@@ -162,7 +162,8 @@ const SCRIPT_REQUIREMENTS = {
         yandex_metrika_delete_mirrors: ['active_account', 'metric_id', 'links'],
         yandex_export_test:         ['active_account'],
         yandex_sitemap_test:        ['active_account'],
-        yandex_metrika_test:        ['active_account']
+        yandex_metrika_test:        ['active_account'],
+        yandex_delete_sitemaps_except: ['active_account', 'links']
     },
     google: {
         gsc_export:             { always: ['active_account'], ifField: { show_sitemaps: ['sitemap_path'] } },

@@ -523,6 +523,39 @@
                 "layout": {
                     "hideSave": true
                 }
+            },
+            {
+                "id": "delete_sitemaps_except",
+                "name": "Удаление sitemap кроме указанных (тест)",
+                "description": "Удаляет все sitemap КРОМЕ указанных в keep_sitemaps. Из robots.txt не удаляются",
+                "script": "yandex_delete_sitemaps_except",
+                "type": "api",
+                "fields": [
+                    {"name": "links", "type": "textarea", "label": "Сайты для обработки (Обязательный блок)"},
+                    {"name": "keep_sitemaps", "type": "textarea", "label": "Сайтмапы для сохранения (пути через перевод строки)"}
+                ],
+                "layout": {
+                    "hideSave": true,
+                    "hideLogs": true,
+                    "statusRolling": true,
+                    "splitSummary": true,
+                    "summaryLabel": "Результаты очистки sitemap",
+                    "columns": [
+                        {"depends": "always", "label": "Сайт", "width": "300px"},
+                        {"depends": "always", "label": "Сайтмапы из робота", "width": "250px"},
+                        {"depends": "always", "label": "Сайтмапы пользователя", "width": "250px"},
+                        {"depends": "always", "label": "Статусы сайтмапов пользователя", "width": "250px"}
+                    ],
+                    "summaryRows": [
+                        {"key": "Сайтов", "depends": "always"},
+                        {"key": "Сайтмапы для сохранения", "depends": "always"},
+                        {"key": "Оставлено", "depends": "always"},
+                        {"key": "Удалено", "depends": "always"},
+                        {"key": "Файлов из робота", "depends": "always"},
+                        {"key": "Не найдено", "depends": "always"},
+                        {"key": "Ошибок", "depends": "always"}
+                    ]
+                }
             }
             ]
         }
