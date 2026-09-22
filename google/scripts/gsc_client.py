@@ -14,6 +14,7 @@ google-api-python-client (webmasters v3 + siteVerification v1 + searchconsole v1
 import datetime
 import json
 import os
+from urllib.parse import urlparse
 
 SCOPES = [
     "https://www.googleapis.com/auth/webmasters",
@@ -90,6 +91,67 @@ def normalize_site_url(url):
     if not host:
         return ''
     return f"{parsed.scheme.lower()}://{host}"
+
+
+def property_key(url):
+    """Канонический ключ GSC-ресурса с сохранением пути.
+
+    sc-domain:ALCO.REHAB            → 'sc-domain:alco.rehab'
+    https://alco.rehab/              → 'https://alco.rehab'
+    https://alco.rehab/regions/znamensk/ → 'https://alco.rehab/regions/znamensk'
+    'alco.rehab' (голый домен)       → 'https://alco.rehab'
+    """
+    url = (url or '').strip()
+    if not url:
+        return ''
+    if url.startswith('sc-domain:'):
+        host = url[len('sc-domain:'):].strip().lower()
+        return f'sc-domain:{host}' if host else ''
+    if '://' not in url:
+        url = 'https://' + url
+    parsed = urlparse(url)
+    host = parsed.hostname or ''
+    if not host:
+        return ''
+    key = f'{parsed.scheme.lower()}://{host.lower()}{parsed.path or ""}'
+    return key.rstrip('/') if key.endswith('/') else key
+
+
+def build_site_url(raw):
+    """Ввод → GSC-ресурс (URL-prefix или sc-domain), путь сохраняется.
+
+    'alco.rehab'                     → 'https://alco.rehab/'
+    'https://alco.rehab/regions/…/'  → 'https://alco.rehab/regions/…/'
+    'sc-domain:alco.rehab'           → 'sc-domain:alco.rehab'
+    """
+    raw = (raw or '').strip()
+    if not raw:
+        return ''
+    if raw.lower().startswith('sc-domain:'):
+        host = raw[len('sc-domain:'):].strip().lower()
+        return f'sc-domain:{host}' if host else ''
+    key = property_key(raw)
+    if not key:
+        return ''
+    return key + '/'
+
+
+def resolve_entries(site_entries, raw):
+    """Выбор списка GSC-ресурсов под ввод raw (точное совпадение по полному ключу).
+
+    - голый домен / корневой https://host/  → сопоставляется ТОЛЬКО хостовому
+      URL-prefix ресурсу (sc-domain: и ресурсы с путём не матчатся);
+    - URL с путём https://host/path/         → ровно этот ресурс;
+    - sc-domain:host                         → ровно sc-domain-ресурс.
+    Возвращает пустой список, если совпадений нет (без префиксных фолбэков).
+    """
+    raw = (raw or '').strip()
+    if not raw or not site_entries:
+        return []
+    want = property_key(raw)
+    if not want:
+        return []
+    return [e for e in site_entries if property_key(e.get('siteUrl', '')) == want]
 
 
 def api_error_str(e):

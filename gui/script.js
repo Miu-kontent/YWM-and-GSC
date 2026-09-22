@@ -172,6 +172,7 @@ const SCRIPT_REQUIREMENTS = {
         gsc_resend_sitemap:     ['active_account', 'sitemap_path'],
         gsc_delete_sites:       ['active_account', 'links'],
         gsc_delete_sitemap:     ['active_account'],
+        gsc_delete_sitemaps_except: ['active_account', 'links'],
         gsc_export_test:        ['active_account'],
         gsc_sitemap_test:       ['active_account']
     }

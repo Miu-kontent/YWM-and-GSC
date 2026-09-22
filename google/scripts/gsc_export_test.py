@@ -112,15 +112,23 @@ def export_sites(webmasters, filter_links):
     log(f'Всего сайтов от API: {total_all}')
 
     if filter_links:
-        filter_set = {host_of(l) for l in filter_links if host_of(l)}
-        log(f'Фильтр ({len(filter_set)} доменов): {filter_set}')
         matched = []
-        for s in sites:
-            if host_of(s.get('siteUrl', '')) in filter_set:
-                matched.append(s)
-        not_found = filter_set - {host_of(s.get('siteUrl', '')) for s in matched}
+        seen = set()
+        not_found = []
+        for l in filter_links:
+            found = gsc_client.resolve_entries(sites, l)
+            if not found:
+                if l.strip() not in not_found:
+                    not_found.append(l.strip())
+                continue
+            for e in found:
+                k = gsc_client.property_key(e.get('siteUrl', ''))
+                if k in seen:
+                    continue
+                seen.add(k)
+                matched.append(e)
         if not_found:
-            print(f"ℹ️  Не найдены в GSC: {', '.join(sorted(not_found))}")
+            print(f"ℹ️  Не найдены в GSC: {', '.join(not_found)}")
         sites = matched
         print(f"ℹ️  Фильтр: указано {len(filter_links)} сайтов, найдено {len(sites)} из {total_all}")
     else:

@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-from urllib.parse import urlparse
 
 import gsc_client
 
@@ -30,17 +29,6 @@ def parse_links(value):
     if isinstance(value, list):
         return [str(l).strip() for l in value if str(l).strip()]
     return []
-
-
-def host_of(url):
-    url = (url or '').strip()
-    if not url:
-        return ''
-    if url.startswith('sc-domain:'):
-        url = url[len('sc-domain:'):]
-    if '://' not in url:
-        url = 'https://' + url
-    return (urlparse(url).hostname or '').lower()
 
 
 def sitemap_status(s):
@@ -94,11 +82,24 @@ def main():
     sites = sites_res.get('siteEntry', [])
 
     if links:
-        filter_set = {host_of(l) for l in links if host_of(l)}
-        sites = [s for s in sites if host_of(s.get('siteUrl', '')) in filter_set]
-        not_found = filter_set - {host_of(s.get('siteUrl', '')) for s in sites}
+        matched = []
+        seen = set()
+        not_found = []
+        for l in links:
+            found = gsc_client.resolve_entries(sites, l)
+            if not found:
+                if l.strip() not in not_found:
+                    not_found.append(l.strip())
+                continue
+            for e in found:
+                k = gsc_client.property_key(e.get('siteUrl', ''))
+                if k in seen:
+                    continue
+                seen.add(k)
+                matched.append(e)
+        sites = matched
         if not_found:
-            print(f"ℹ️  Не найдены в GSC: {', '.join(sorted(not_found))}")
+            print(f"ℹ️  Не найдены в GSC: {', '.join(not_found)}")
 
     total = len(sites)
     print(f"ℹ️  Сайтов анализируется: {total}")

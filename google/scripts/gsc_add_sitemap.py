@@ -24,7 +24,6 @@ import json
 import os
 import sys
 import time
-from urllib.parse import urlparse
 
 import gsc_client
 
@@ -49,17 +48,6 @@ def parse_links(value):
     if isinstance(value, list):
         return [str(l).strip() for l in value if str(l).strip()]
     return []
-
-
-def host_of(url):
-    url = (url or '').strip()
-    if not url:
-        return ''
-    if url.startswith('sc-domain:'):
-        url = url[len('sc-domain:'):]
-    if '://' not in url:
-        url = 'https://' + url
-    return (urlparse(url).hostname or '').lower()
 
 
 def is_quota_error(e):
@@ -143,19 +131,17 @@ def main():
         return
 
     site_entries = sites_res.get('siteEntry', [])
-    by_host = {host_of(s.get('siteUrl', '')): s for s in site_entries}
 
     if links:
         targets = []
         for raw in links:
-            h = host_of(raw)
-            entry = by_host.get(h)
-            if entry is None:
-                targets.append((raw, h, None))
+            found = gsc_client.resolve_entries(site_entries, raw)
+            if not found:
+                targets.append((raw, None))
             else:
-                targets.append((entry.get('siteUrl', ''), h, entry))
+                targets.append((found[0].get('siteUrl', ''), found[0]))
     else:
-        targets = [(s.get('siteUrl', ''), host_of(s.get('siteUrl', '')), s) for s in site_entries]
+        targets = [(s.get('siteUrl', ''), s) for s in site_entries]
 
     total = len(targets)
     print(f"ℹ️  Сайтов обрабатывается: {total}")
@@ -163,7 +149,7 @@ def main():
     success = pending = errors = 0
     processed = 0
 
-    for site_url, h, entry in targets:
+    for site_url, entry in targets:
         processed += 1
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
 

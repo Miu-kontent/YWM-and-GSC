@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import time
-from urllib.parse import urlparse
 
 import gsc_client
 
@@ -28,27 +27,6 @@ def parse_links(value):
     if isinstance(value, list):
         return [str(l).strip() for l in value if str(l).strip()]
     return []
-
-
-def host_of(url):
-    url = (url or '').strip()
-    if not url:
-        return ''
-    if url.startswith('sc-domain:'):
-        url = url[len('sc-domain:'):]
-    if '://' not in url:
-        url = 'https://' + url
-    return (urlparse(url).hostname or '').lower()
-
-
-def to_site_url(raw):
-    raw = (raw or '').strip()
-    if not raw:
-        return ''
-    if raw.lower().startswith('sc-domain:'):
-        return f"sc-domain:{raw[len('sc-domain:'):].strip().lower()}"
-    host = host_of(raw)
-    return f"https://{host}/" if host else ''
 
 
 def is_quota_error(e):
@@ -108,16 +86,18 @@ def main():
 
     existing = {}
     for entry in sites_res.get('siteEntry', []):
-        existing[host_of(entry.get('siteUrl', ''))] = entry.get('permissionLevel', '')
+        key = gsc_client.property_key(entry.get('siteUrl', ''))
+        if key:
+            existing[key] = entry.get('permissionLevel', '')
 
     if links:
         targets = []
         for raw in links:
-            site_url = to_site_url(raw)
+            site_url = gsc_client.build_site_url(raw)
             if not site_url:
                 targets.append(('bad', raw))
                 continue
-            level = existing.get(host_of(site_url))
+            level = existing.get(gsc_client.property_key(site_url))
             if level is None:
                 targets.append(('not_added', site_url))
             elif level == 'siteUnverifiedUser':

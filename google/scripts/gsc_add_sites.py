@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import time
-from urllib.parse import urlparse
 
 import gsc_client
 
@@ -27,27 +26,6 @@ def parse_links(value):
     if isinstance(value, list):
         return [str(l).strip() for l in value if str(l).strip()]
     return []
-
-
-def host_of(url):
-    url = (url or '').strip()
-    if not url:
-        return ''
-    if url.startswith('sc-domain:'):
-        url = url[len('sc-domain:'):]
-    if '://' not in url:
-        url = 'https://' + url
-    return (urlparse(url).hostname or '').lower()
-
-
-def to_site_url(raw):
-    raw = (raw or '').strip()
-    if not raw:
-        return ''
-    if raw.lower().startswith('sc-domain:'):
-        return f"sc-domain:{raw[len('sc-domain:'):].strip().lower()}"
-    host = host_of(raw)
-    return f"https://{host}/" if host else ''
 
 
 def is_quota_error(e):
@@ -120,13 +98,19 @@ def main():
 
     existing = {}
     for entry in sites_res.get('siteEntry', []):
-        existing[host_of(entry.get('siteUrl', ''))] = entry.get('permissionLevel', '')
+        key = gsc_client.property_key(entry.get('siteUrl', ''))
+        if key and key not in existing:
+            existing[key] = entry.get('permissionLevel', '')
 
     total = len(links)
     added = earlier = confirmed = errors = 0
     processed = 0
 
-    need_add = sum(1 for site in links if host_of(to_site_url(site)) not in existing and to_site_url(site))
+    need_add = 0
+    for site in links:
+        k = gsc_client.property_key(gsc_client.build_site_url(site))
+        if k and k not in existing:
+            need_add += 1
     if len(existing) >= 1000 and need_add > 0:
         print(f"⛔ Лимит сайтов аккаунта достигнут ({len(existing)} >= 1000). Добавление {need_add} новых невозможно.")
         return
@@ -134,13 +118,13 @@ def main():
     for site in links:
         processed += 1
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
-        site_url = to_site_url(site)
+        site_url = gsc_client.build_site_url(site)
         if not site_url:
             errors += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "❌ Неверный формат сайта"]}, ensure_ascii=False)}')
             continue
 
-        key = host_of(site_url)
+        key = gsc_client.property_key(site_url)
         if key in existing:
             level = existing[key]
             if level == 'siteUnverifiedUser':

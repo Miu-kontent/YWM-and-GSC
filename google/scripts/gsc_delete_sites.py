@@ -14,7 +14,6 @@ import json
 import os
 import sys
 import time
-from urllib.parse import urlparse
 
 import gsc_client
 
@@ -39,17 +38,6 @@ def parse_links(value):
     if isinstance(value, list):
         return [str(l).strip() for l in value if str(l).strip()]
     return []
-
-
-def host_of(url):
-    url = (url or '').strip()
-    if not url:
-        return ''
-    if url.startswith('sc-domain:'):
-        url = url[len('sc-domain:'):]
-    if '://' not in url:
-        url = 'https://' + url
-    return (urlparse(url).hostname or '').lower()
 
 
 def is_quota_error(e):
@@ -107,9 +95,9 @@ def main():
 
     existing = {}
     for entry in sites_res.get('siteEntry', []):
-        h = host_of(entry.get('siteUrl', ''))
-        if h and h not in existing:
-            existing[h] = entry.get('siteUrl', '')
+        key = gsc_client.property_key(entry.get('siteUrl', ''))
+        if key and key not in existing:
+            existing[key] = entry.get('siteUrl', '')
 
     total = len(links)
     deleted = not_found = errors = 0
@@ -118,7 +106,7 @@ def main():
     for site in links:
         processed += 1
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
-        site_url = existing.get(host_of(site)) or ''
+        site_url = existing.get(gsc_client.property_key(site)) or ''
         if not site_url:
             not_found += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [site, "ℹ️ Не найден в GSC"]}, ensure_ascii=False)}')
