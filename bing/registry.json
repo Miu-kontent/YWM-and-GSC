@@ -1,4 +1,350 @@
 {
-    "categories": [],
-    "excludedScripts": []
+    "categories": [
+        {
+            "id": "export",
+            "name": "Выгрузка",
+            "description": "Выгрузка данных из Bing Webmaster",
+            "subcategories": [
+                {
+                    "id": "bing_export",
+                    "name": "Выгрузка из Bing",
+                    "description": "Выгрузка: сайты, права, сайтмапы",
+                    "script": "bing_export",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для выгрузки (Пусто = все сайты из Bing)"
+                        },
+                        {
+                            "name": "show_sitemaps",
+                            "type": "checkbox",
+                            "label": "Сайтмапы"
+                        }
+                    ],
+                    "layout": {
+                        "copySites": true,
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайтов",
+                            "Не подтверждённых",
+                            "Сайтмапов",
+                            "Без сайтмапа",
+                            "Сайтов с ошибкой сайтмапа",
+                            "Сайтов в обработке",
+                            "Ошибок запросов"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "220px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Права",
+                                "width": "150px"
+                            },
+                            {
+                                "depends": "field:show_sitemaps",
+                                "label": "Сайтмапы",
+                                "width": "280px"
+                            },
+                            {
+                                "depends": "field:show_sitemaps",
+                                "label": "Статусы сайтмапов",
+                                "width": "160px"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "sites",
+            "name": "Сайты",
+            "description": "Управление сайтами в Bing Webmaster",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление сайтов",
+                    "description": "Массовое добавление сайтов (GetUserSites + AddSite)",
+                    "script": "bing_add_sites",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для добавления (обязательно)"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайты",
+                            "Добавлено",
+                            "Ошибок"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "280px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Статус",
+                                "width": "200px"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "verify",
+                    "name": "Подтверждение прав",
+                    "description": "Подтверждение прав на сайты (GetUserSites + VerifySite)",
+                    "script": "bing_verify",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для подтверждения (пусто = все сайты)"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайтов",
+                            "Подтверждённых ранее",
+                            "Подтверждённых",
+                            "Ошибок"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "280px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Статус",
+                                "width": "200px"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "sitemaps",
+            "name": "Сайтмапы",
+            "description": "Управление сайтмапами в Bing Webmaster",
+            "subcategories": [
+                {
+                    "id": "add",
+                    "name": "Добавление сайтмапа",
+                    "description": "Добавление sitemap через SubmitFeed (проверяет наличие перед добавлением)",
+                    "script": "bing_add_sitemap",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для добавления (пусто = все сайты)"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайтов",
+                            "Путь сайтмапа",
+                            "Успешно",
+                            "Ошибок"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "220px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Сайтмап",
+                                "width": "280px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Статус",
+                                "width": "160px"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "delete",
+                    "name": "Удаление сайтмапа",
+                    "description": "Удаление конкретного сайтмапа по пути (GetFeeds + RemoveFeed)",
+                    "script": "bing_delete_sitemap",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для удаления (пусто = все сайты)"
+                        },
+                        {
+                            "name": "sitemap_path",
+                            "type": "text",
+                            "label": "Путь сайтмапа к удалению",
+                            "placeholder": "Например: /sitemap/"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайтов",
+                            "Путь сайтмапа",
+                            "Удалено",
+                            "Не найдено",
+                            "Ошибок"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "220px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Сайтмап",
+                                "width": "280px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Статус",
+                                "width": "160px"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "id": "tests",
+            "name": "Тесты",
+            "description": "Тестовые скрипты",
+            "subcategories": [
+                {
+                    "id": "bing_export_test",
+                    "name": "Экспорт Bing (тест)",
+                    "description": "Bing Webmaster API — все методы чтения",
+                    "script": "bing_export_test",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для анализа (Пусто = первые 3 сайта из Bing)"
+                        },
+                        {
+                            "name": "urls",
+                            "type": "textarea",
+                            "label": "URL для анализа (Пусто = корень сайта)",
+                            "placeholder": "Например: https://example.com/page.html"
+                        },
+                        {
+                            "name": "keyword",
+                            "type": "text",
+                            "label": "Ключевик (Пусто = пропустить блок ключевиков)",
+                            "placeholder": "Например: купить рекламу"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true
+                    }
+                },
+                {
+                    "id": "bing_delete_sitemaps_except",
+                    "name": "Удаление сайтмапов кроме...",
+                    "description": "Удаление всех сайтмапов, КРОМЕ указанных (GetFeeds + RemoveFeed)",
+                    "script": "bing_delete_sitemaps_except",
+                    "type": "api",
+                    "fields": [
+                        {
+                            "name": "links",
+                            "type": "textarea",
+                            "label": "Сайты для обработки (обязательно)"
+                        },
+                        {
+                            "name": "keep_sitemaps",
+                            "type": "textarea",
+                            "label": "Пути сайтмапов для сохранения (не удалять)",
+                            "placeholder": "Например:\n/sitemap/\n/sitemap.xml"
+                        },
+                        {
+                            "name": "delete_www",
+                            "type": "checkbox",
+                            "label": "Удалять с www"
+                        }
+                    ],
+                    "layout": {
+                        "hideSave": true,
+                        "hideLogs": true,
+                        "statusRolling": true,
+                        "splitSummary": true,
+                        "summaryLabel": "Сводка",
+                        "summaryPlaceholder": [
+                            "Сайтов",
+                            "Оставлено",
+                            "Удалено",
+                            "Не найдено",
+                            "Ошибок"
+                        ],
+                        "columns": [
+                            {
+                                "depends": "always",
+                                "label": "Сайт",
+                                "width": "220px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Оставляемые сайтмапы",
+                                "width": "200px"
+                            },
+                            {
+                                "depends": "always",
+                                "label": "Статус",
+                                "width": "200px"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ],
+    "excludedScripts": [
+        "bing_client"
+    ]
 }

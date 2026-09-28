@@ -141,7 +141,7 @@ window._scriptsData = { yandex: {}, google: {}, bing: {} };
 const serviceFields = {
     yandex: ['active_account', 'metric_id', 'contact_path', 'sitemap_path'],
     google: ['active_account', 'sitemap_path'],
-    bing: ['active_account']
+    bing: ['active_account', 'sitemap_path']
 };
 
 // Человекочитаемые названия ключей для toast-уведомлений
@@ -190,7 +190,15 @@ const SCRIPT_REQUIREMENTS = {
         gsc_export_test:        ['active_account'],
         gsc_sitemap_test:       ['active_account']
     },
-    bing: {}
+    bing: {
+        bing_export:                    ['active_account'],
+        bing_add_sites:                 ['active_account', 'links'],
+        bing_add_sitemap:               ['active_account', 'sitemap_path'],
+        bing_verify:                    ['active_account'],
+        bing_delete_sitemap:            ['active_account'],
+        bing_delete_sitemaps_except:    ['active_account', 'links'],
+        bing_export_test:               ['active_account']
+    }
 };
 
 function getSubcategoryForScript(service, script) {
@@ -337,6 +345,7 @@ async function loadGlobalKeys() {
 
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
         setKeyValue('bing', 'active_account', bingCfg.active_account);
+        setKeyValue('bing', 'sitemap_path', bingCfg.sitemap_path);
 
         const [ya, ga, ba] = await Promise.all([
             refreshYandexAccounts(), refreshGoogleAccounts(), refreshBingAccounts()
@@ -849,7 +858,7 @@ function renderFieldInput(field, scriptId, savedData) {
         case 'text':
             return `<div class="form-group">
                 <label class="form-label">${f.label}</label>
-                <input type="text" class="form-control" id="${id}" value="${val}" placeholder="${f.label}">
+                <input type="text" class="form-control" id="${id}" value="${escHtml(val)}" placeholder="${escHtml(f.placeholder || f.label)}">
             </div>`;
         case 'select':
             const selVal = effectiveSelectValue(f.options, val, f.default);
@@ -1435,10 +1444,13 @@ function scriptFinished(key, code, wasStopped) {
     const dashIdx = scriptId.indexOf('-');
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
-    const isError = code !== 0;
     const statusEl = document.getElementById(`${scriptId}-status`);
     const elapsed = elapsedFor(scriptId);
     delete scriptStartTimes[scriptId];
+
+    // Код 100 = дневной лимит исчерпан (ThrottleUser)
+    const isDailyLimit = code === 100;
+    const isError = code !== 0 && !isDailyLimit;
 
     if (wasStopped) {
         // Остановлено пользователем: в логах фиксируем прекращение работы,
@@ -1452,6 +1464,18 @@ function scriptFinished(key, code, wasStopped) {
         setRunButton(scriptId, 'idle');
         runningScripts[scriptId] = false;
         setScriptUiStatus(service, script, null);
+        return;
+    }
+
+    // Код 100 = дневной лимит исчерпан
+    if (isDailyLimit) {
+        if (statusEl) {
+            statusEl.textContent = `⚠️ Дневной лимит исчерпан${elapsed}`;
+            statusEl.style.color = 'var(--status-warning-text)';
+        }
+        setRunButton(scriptId, 'idle');
+        runningScripts[scriptId] = false;
+        setScriptUiStatus(service, script, 'warning');
         return;
     }
 

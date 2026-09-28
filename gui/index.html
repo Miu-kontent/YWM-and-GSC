@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -203,10 +203,10 @@
                         </div>
                         <button class="btn btn--primary btn--small" onclick="bingAuthorize()">🔑 Авторизоваться</button>
                     </div>
-                    <p class="card__body" style="margin: 0; font-size: 12px; opacity: 0.7;">
-                        Авторизация OAuth 2.0 открывает вкладку в браузере 9225 — войдите в Bing Webmaster
-                        и подтвердите доступ. Скрипты Bing появятся позже.
-                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Sitemap</label>
+                        <input type="text" class="form-control" data-service="bing" data-field="sitemap_path" placeholder="/sitemap/">
+                    </div>
                 </div>
             </div>
 
