@@ -102,8 +102,19 @@ function toggleTheme() {
 }
 
 function updateThemeIcon() {
-    const btn = document.querySelector('.btn--icon');
+    const btn = document.getElementById('btn-theme');
     if (btn) btn.textContent = document.body.classList.contains('light-theme') ? '☀️ Светлая' : '🌙 Тёмная';
+}
+
+async function openDevtools() {
+    try {
+        const res = await window.pywebview.api.open_devtools();
+        if (!res || res.success !== true) {
+            showToast((res && res.message) || 'Консоль разработчика недоступна', 'error');
+        }
+    } catch (e) {
+        showToast('Консоль разработчика недоступна: ' + e, 'error');
+    }
 }
 
 function addLoaderLog(msg) {
@@ -1256,6 +1267,15 @@ function setRunButton(scriptId, state) {
 function appendLog(key, line) {
     const scriptId = key.replace(':', '-');
 
+    if (line.startsWith('__DEBUG__:')) {
+        try {
+            const data = JSON.parse(line.slice(line.indexOf(':') + 1));
+            const { tag, msg, ...rest } = data;
+            const extra = Object.keys(rest).length ? rest : null;
+            console.log(`%c[${tag || 'DEBU'}]`, 'color:#e8b339;font-weight:bold', msg, extra || '');
+        } catch (e) { console.log('[DEBU]', line); }
+        return;
+    }
     if (line.startsWith('__TOAST__:')) {
         try {
             const data = JSON.parse(line.slice(line.indexOf(':') + 1));

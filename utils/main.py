@@ -106,6 +106,68 @@ class Api:
     def _browser_is_running(self, port):
         return self._devtools_info(port) is not None
 
+    def _webview2_control(self):
+        """WebView2-контроллер окна приложения (None, если окно ещё не готово).
+
+        В pywebview 6.x на Windows: window.native → BrowserForm (winforms),
+        у него .browser → EdgeChrome, у того .webview → WebView2.
+        """
+        if not webview.windows:
+            return None
+        native = getattr(webview.windows[0], "native", None)
+        for holder in (getattr(getattr(native, "browser", None), "webview", None),
+                       getattr(native, "webview", None)):
+            if holder is not None:
+                return holder
+        return None
+
+    def open_devtools(self):
+        """Открыть консоль разработчика (DevTools) окна приложения.
+
+        Свойство CoreWebView2 у WebView2 доступно ТОЛЬКО из UI-потока, поэтому
+        действие выполняется через Control.Invoke — так же, как это делает сам
+        pywebview (platforms/edgechromium.py). Требует webview.start(debug=True),
+        иначе WebView2 запрещает DevTools (AreDevToolsEnabled). Кнопка в GUI —
+        страховка на случай, если F12 не сработает.
+        """
+        try:
+            control = self._webview2_control()
+            if control is None:
+                return {"success": False, "message": "DevTools недоступны: окно ещё не инициализировано"}
+
+            from System import Func, Object  # pythonnet загружен pywebview при старте окна
+
+            state = {}
+
+            def _open():
+                try:
+                    core = control.CoreWebView2
+                    if core is None:
+                        state['error'] = "WebView2 ещё не готов"
+                        return
+                    core.Settings.AreDevToolsEnabled = True
+                    core.OpenDevToolsWindow()
+                    state['ok'] = True
+                except Exception as e:
+                    state['error'] = str(e)
+
+            delegate = Func[Object](_open)
+
+            # WebView2 поднимается не сразу: коротко ждём готовности контроллера
+            for _ in range(12):
+                state.clear()
+                control.Invoke(delegate)  # блокирует до выполнения в UI-потоке
+                if state.get('ok'):
+                    return {"success": True, "message": "Консоль разработчика открыта"}
+                if 'ещё не готов' not in (state.get('error') or ''):
+                    break
+                time.sleep(0.3)
+
+            reason = state.get('error') or 'неизвестная причина'
+            return {"success": False, "message": f"DevTools недоступны: {reason}"}
+        except Exception as e:
+            return {"success": False, "message": f"Не удалось открыть консоль разработчика: {e}"}
+
     def clean_browser_cache(self):
         """Точечная очистка кэша дебаг-профилей. Входы сохраняются.
 
@@ -841,6 +903,11 @@ def main():
     api = Api()
     html_file = os.path.join(api.gui_dir, "index.html")
 
+    # Режим разработчика: DevTools включаются (F12 открывает консоль), но само
+    # окно при старте программы НЕ появляется. Отключать не нужно — дебаг-вывод
+    # скриптов (__DEBUG__) живёт только в консоли.
+    webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
+
     window = webview.create_window(
         title="YWM-and-GSC",
         url=html_file,
@@ -855,7 +922,7 @@ def main():
 
     webview.start(
         icon=os.path.join(api.gui_dir, "favicon.ico"),
-        debug=False,
+        debug=True,
         private_mode=False,
         http_server=True,
         http_port=_pick_free_port()
