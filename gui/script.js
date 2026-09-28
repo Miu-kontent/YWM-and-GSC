@@ -1,4 +1,5 @@
 let runningScripts = {};
+let scriptStartTimes = {};
 
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
@@ -1180,6 +1181,7 @@ async function runScript(service, script) {
     const summaryEl = document.getElementById(`${scriptId}-summary`);
 
     runningScripts[scriptId] = true;
+    scriptStartTimes[scriptId] = Date.now();
     setScriptUiStatus(service, script, 'running');
     setRunButton(scriptId, 'running');
     statusEl.textContent = 'Запуск...';
@@ -1213,6 +1215,7 @@ async function runScript(service, script) {
         statusEl.style.color = 'var(--status-error-text)';
         setRunButton(scriptId, 'idle');
         runningScripts[scriptId] = false;
+        delete scriptStartTimes[scriptId];
         setScriptUiStatus(service, script, 'error');
     }
 }
@@ -1341,6 +1344,27 @@ function appendLog(key, line) {
     }
 }
 
+// Время выполнения скрипта: минуты с одним знаком (вниз, без «перепрыгивания»
+// 83,9 → 84,0), при часе — в скобках.
+//   < 60 сек  → «45 сек.»
+//   < 60 мин  → «83,9 мин.»
+//   >= 60 мин → «83,9 мин. (1,4 ч.)»
+function formatDuration(ms) {
+    const totalSec = Math.max(0, Math.round(ms / 1000));
+    if (totalSec < 60) return `${totalSec} сек.`;
+    const comma = (value) => value.toFixed(1).replace('.', ',');
+    const minutes = (Math.floor(totalSec / 6) / 10).toFixed(1).replace('.', ',');
+    if (totalSec < 3600) return `${minutes} мин.`;
+    return `${minutes} мин. (${comma(totalSec / 3600)} ч.)`;
+}
+
+// «за 83,9 мин. (1,4 ч.)» — пусто, если запуск не зафиксирован (перезагрузка GUI)
+function elapsedFor(scriptId) {
+    const started = scriptStartTimes[scriptId];
+    if (!started) return '';
+    return ` за ${formatDuration(Date.now() - started)}`;
+}
+
 function scriptFinished(key, code, wasStopped) {
     const scriptId = key.replace(':', '-');
     const dashIdx = scriptId.indexOf('-');
@@ -1348,14 +1372,16 @@ function scriptFinished(key, code, wasStopped) {
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const isError = code !== 0;
     const statusEl = document.getElementById(`${scriptId}-status`);
+    const elapsed = elapsedFor(scriptId);
+    delete scriptStartTimes[scriptId];
 
     if (wasStopped) {
         // Остановлено пользователем: в логах фиксируем прекращение работы,
         // уже наработанный прогресс сохраняем в таблице и краткой сводке.
-        appendLog(key, '⏹ Работа скрипта остановлена пользователем');
+        appendLog(key, `⏹ Работа скрипта остановлена пользователем${elapsed ? elapsed : ''}`);
         finalizePartialReport(scriptId);
         if (statusEl) {
-            statusEl.textContent = '⏹ Остановлен';
+            statusEl.textContent = `⏹ Остановлен${elapsed}`;
             statusEl.style.color = 'var(--status-warning-text)';
         }
         setRunButton(scriptId, 'idle');
@@ -1365,7 +1391,7 @@ function scriptFinished(key, code, wasStopped) {
     }
 
     if (statusEl) {
-        statusEl.textContent = isError ? 'Завершено с ошибкой' : 'Завершено';
+        statusEl.textContent = `${isError ? 'Завершено с ошибкой' : 'Завершено'}${elapsed}`;
         statusEl.style.color = isError ? 'var(--status-error-text)' : 'var(--status-success-text)';
     }
     setRunButton(scriptId, 'idle');
