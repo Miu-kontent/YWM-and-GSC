@@ -36,6 +36,7 @@
             <button class="nav__item active" data-tab="dashboard" onclick="switchTab('dashboard')">🏠 Главная</button>
             <button class="nav__item" data-tab="yandex" onclick="switchTab('yandex')">🌏 Яндекс</button>
             <button class="nav__item" data-tab="google" onclick="switchTab('google')">🔍 Google</button>
+            <button class="nav__item" data-tab="bing" onclick="switchTab('bing')">🐦 Bing</button>
         </nav>
         <div class="header__spacer" style="justify-content: flex-end;">
             <button class="btn--icon" onclick="openDevtools()" title="Открыть консоль разработчика (F12) — дебаг скриптов">🔧</button>
@@ -181,6 +182,39 @@
 
             <!-- Контент активной подкатегории -->
             <div id="google-script-content"></div>
+        </section>
+
+        <!-- Вкладка Bing -->
+        <section id="tab-bing" class="tab-content hidden">
+            <div class="accordion" id="bing-keys-accordion">
+                <div class="accordion__header" onclick="toggleAccordion('bing-keys')">
+                    <span>🔑 Ключи <span class="accordion__arrow">&#9660;</span></span>
+                    <span class="accordion__title">🐦 Bing Webmaster Tools</span>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="btn btn--secondary btn--small" onclick="event.stopPropagation(); launchBrowser('bing')">🌐 Браузер</button>
+                        <button class="btn btn--primary btn--small" onclick="event.stopPropagation(); saveKeys('bing', event)">💾 Сохранить</button>
+                    </div>
+                </div>
+                <div class="accordion__body hidden" id="bing-keys-body">
+                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;">
+                        <div class="form-group">
+                            <label class="form-label">Аккаунт Bing</label>
+                            <select class="form-control" data-service="bing" data-field="active_account" title="Аккаунт, токены которого использует приложение"><option value="">— аккаунт не авторизован —</option></select>
+                        </div>
+                        <button class="btn btn--primary btn--small" onclick="bingAuthorize()">🔑 Авторизоваться</button>
+                    </div>
+                    <p class="card__body" style="margin: 0; font-size: 12px; opacity: 0.7;">
+                        Авторизация OAuth 2.0 открывает вкладку в браузере 9225 — войдите в Bing Webmaster
+                        и подтвердите доступ. Скрипты Bing появятся позже.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Навигация по категориям (генерируется из registry.json) -->
+            <div class="category-nav" id="bing-category-nav"></div>
+
+            <!-- Контент активной подкатегории -->
+            <div id="bing-script-content"></div>
         </section>
     </main>
 

@@ -15,6 +15,38 @@ import ctypes
 
 # import webbrowser
 
+# Отладочные браузеры сервисов: свой порт и профиль на каждый сервис
+# (используются для UI-автоматизации и OAuth-авторизации через вкладку браузера).
+BROWSER_PORTS = {
+    "yandex": 9229,
+    "google": 9227,
+    "bing": 9225,
+}
+
+BROWSER_PROFILES = {
+    "yandex": "chrome-debug-yandex",
+    "google": "chrome-debug-google",
+    "bing": "chrome-debug-bing",
+}
+
+# ======================== BING WEBMASTER API / OAUTH ========================
+
+BING_AUTH_URL = "https://www.bing.com/webmasters/oauth/authorize"
+
+# Эндпоинт обмена кода/refresh-токена. В документации Microsoft расходится:
+# в тексте — /webmasters/oauth/token, в примере запроса — POST /webmasters/token.
+# Поэтому пробуем оба (первый рабочий и запоминаем результат).
+BING_TOKEN_URLS = (
+    "https://www.bing.com/webmasters/oauth/token",
+    "https://www.bing.com/webmasters/token",
+)
+
+BING_API_BASE = "https://www.bing.com/webmaster/api.svc/json"
+BING_DEFAULT_SCOPE = "webmaster.manage"
+
+# Сколько ждём редиректа с кодом авторизации (вход в Microsoft + согласие).
+BING_AUTH_TIMEOUT = 300
+
 # Профили дебаг-браузеров (debug_profiles/<profile>) хранят входы/сессии (Cookies,
 # Local Storage и т.п. — их НЕ трогаем). При старте программы точечно удаляем только
 # перекачиваемые кэши и компоненты, чтобы профили не разрастались (см. clean_browser_cache).
@@ -82,8 +114,39 @@ class Api:
         self.google_arrays_dir = os.path.join(self.google_dir, "arrays")
         self.google_scripts_dir = os.path.join(self.google_dir, "scripts")
 
+        self.bing_dir = os.path.join(self.base_dir, "bing")
+        self.bing_config_path = os.path.join(self.bing_dir, "config.json")
+        self.bing_accounts_path = os.path.join(self.bing_dir, "accounts.json")
+        self.bing_app_config_path = os.path.join(self.bing_dir, "app_config.json")
+        self.bing_arrays_dir = os.path.join(self.bing_dir, "arrays")
+        self.bing_scripts_dir = os.path.join(self.bing_dir, "scripts")
+
         self.running_processes = {}
         self.stopped_scripts = set()
+
+    # ======================== СЕРВИСЫ ========================
+
+    def _service_dir(self, service):
+        return {"yandex": self.yandex_dir, "google": self.google_dir, "bing": self.bing_dir}[service]
+
+    def _config_path(self, service):
+        return {"yandex": self.yandex_config_path, "google": self.google_config_path,
+                "bing": self.bing_config_path}[service]
+
+    def _arrays_dir(self, service):
+        return {"yandex": self.yandex_arrays_dir, "google": self.google_arrays_dir,
+                "bing": self.bing_arrays_dir}[service]
+
+    def _scripts_dir(self, service):
+        return {"yandex": self.yandex_scripts_dir, "google": self.google_scripts_dir,
+                "bing": self.bing_scripts_dir}[service]
+
+    def _browser_port(self, service):
+        """Порт отладочного браузера сервиса (yandex 9229, google 9227, bing 9225)."""
+        return BROWSER_PORTS[service]
+
+    def _browser_profile(self, service):
+        return BROWSER_PROFILES[service]
 
     def _devtools_info(self, port):
         """CDP-инфо (dict), если на порту отвечает реальный Chrome DevTools, иначе None.
@@ -180,11 +243,8 @@ class Api:
         старт. Возвращает список сообщений для лога GUI.
         """
         logs = []
-        profiles = (
-            ("yandex", "chrome-debug-yandex", 9229),
-            ("google", "chrome-debug-google", 9227),
-        )
-        for name, profile_name, port in profiles:
+        for name, port in BROWSER_PORTS.items():
+            profile_name = BROWSER_PROFILES[name]
             if self._browser_is_running(port):
                 logs.append(f"ℹ️ Браузер {name} запущен (порт {port}), кэш не трогаю")
                 continue
@@ -282,20 +342,23 @@ class Api:
         os.execl(python, python, *sys.argv)
             
     def get_config(self, service):
-        path = self.yandex_config_path if service == "yandex" else self.google_config_path
-        default = {}
-        if service == "yandex":
-            default.update({
-                "active_account": "", 
-                "metric_id": "", 
-                "contact_path": "", 
+        path = self._config_path(service)
+        default = {
+            "yandex": {
+                "active_account": "",
+                "metric_id": "",
+                "contact_path": "",
                 "sitemap_path": ""
-            })
-        else:
-            default.update({
-                "active_account": "", 
+            },
+            "google": {
+                "active_account": "",
                 "sitemap_path": ""
-            })
+            },
+            # Bing: аккаунт выбирается после OAuth-авторизации
+            "bing": {
+                "active_account": ""
+            },
+        }.get(service, {}).copy()
 
         os.makedirs(os.path.dirname(path), exist_ok=True)
         try:
@@ -307,7 +370,7 @@ class Api:
         return default
 
     def save_config(self, service, data):
-        path = self.yandex_config_path if service == "yandex" else self.google_config_path
+        path = self._config_path(service)
         try:
             current = self.get_config(service)
             current.update(data)
@@ -319,8 +382,7 @@ class Api:
             return {"success": False}
 
     def get_registry(self, service):
-        registry_dir = self.yandex_dir if service == "yandex" else self.google_dir
-        registry_path = os.path.join(registry_dir, "registry.json")
+        registry_path = os.path.join(self._service_dir(service), "registry.json")
         if os.path.exists(registry_path):
             try:
                 with open(registry_path, "r", encoding="utf-8") as f:
@@ -332,7 +394,8 @@ class Api:
     def get_scripts_list(self, service):
         registry = self.get_registry(service)
         excluded = set(registry.get("excludedScripts", []))
-        scripts_dir = self.yandex_scripts_dir if service == "yandex" else self.google_scripts_dir
+        scripts_dir = self._scripts_dir(service)
+        os.makedirs(scripts_dir, exist_ok=True)
         scripts = []
         for f in os.listdir(scripts_dir):
             name = os.path.splitext(f)[0]
@@ -344,7 +407,7 @@ class Api:
         return {"scripts": scripts}
 
     def _get_arrays_dir(self, service):
-        return self.yandex_arrays_dir if service == "yandex" else self.google_arrays_dir
+        return self._arrays_dir(service)
 
     def _get_script_array_path(self, service, script_name):
         return os.path.join(self._get_arrays_dir(service), f"{script_name}.json")
@@ -393,8 +456,7 @@ class Api:
             print(f"[API] Ошибка генерации {script_name}.json: {e}")
 
     def check_browser(self, service):
-        port = 9229 if service == "yandex" else 9227
-        return {"success": True, "running": self._browser_is_running(port)}
+        return {"success": True, "running": self._browser_is_running(self._browser_port(service))}
 
     def close_browser(self, service):
         """Мягкое закрытие отладочного браузера через CDP Browser.close.
@@ -402,7 +464,7 @@ class Api:
         Chrome завершается корректно (все процессы профиля выходят), входы в профиле
         сохраняются, а очистка кэша при следующем старте уже не пропустится.
         """
-        port = 9229 if service == "yandex" else 9227
+        port = self._browser_port(service)
         info = self._devtools_info(port)
         if not info:
             return {"success": False, "message": f"Браузер {service} не запущен"}
@@ -420,10 +482,10 @@ class Api:
             return {"success": False, "message": str(e)}
 
     def launch_browser(self, service):
-        port = 9229 if service == "yandex" else 9227
+        port = self._browser_port(service)
         profiles_dir = os.path.join(self.base_dir, "debug_profiles")
         os.makedirs(profiles_dir, exist_ok=True)
-        profile_name = "chrome-debug-yandex" if service == "yandex" else "chrome-debug-google"
+        profile_name = self._browser_profile(service)
         profile_path = os.path.join(profiles_dir, profile_name)
 
         chrome_path = self._find_chrome()
@@ -459,7 +521,7 @@ class Api:
     def run_script(self, service, script_name):
         self.generate_arr(service, script_name)
 
-        service_dir = self.yandex_dir if service == "yandex" else self.google_dir
+        service_dir = self._service_dir(service)
         script_path = os.path.join(service_dir, "scripts", f"{script_name}.js")
         py_script_path = os.path.join(service_dir, "scripts", f"{script_name}.py")
 
@@ -623,20 +685,29 @@ class Api:
         with open(self.yandex_accounts_path, "w", encoding="utf-8") as f:
             json.dump({"accounts": accounts}, f, ensure_ascii=False, indent=4)
 
-    def _open_in_yandex_debug_browser(self, url):
-        """Открывает URL новой вкладкой в отладочном Chrome (порт 9229) через CDP /json/new."""
+    def _open_in_debug_browser(self, service, url):
+        """Открывает URL новой вкладкой в отладочном Chrome сервиса через CDP /json/new.
+
+        Порт берётся из BROWSER_PORTS (yandex 9229, google 9227, bing 9225).
+        Возвращает данные цели (id/url/webSocketDebuggerUrl) или поднимает исключение.
+        """
+        import urllib.parse
+        port = self._browser_port(service)
         try:
-            import urllib.parse
             resp = requests.put(
-                f"http://127.0.0.1:9229/json/new?{urllib.parse.quote(url, safe='')}",
+                f"http://127.0.0.1:{port}/json/new?{urllib.parse.quote(url, safe='')}",
                 timeout=5,
             )
             if resp.status_code != 200:
                 raise RuntimeError(f"CDP ответил HTTP {resp.status_code}")
-            return resp.json().get("webSocketDebuggerUrl", "")
+            return resp.json()
         except Exception as e:
-            print(f"[API] Ошибка открытия вкладки в браузере 9229: {e}")
-            raise RuntimeError(f"Не удалось открыть вкладку в браузере 9229: {e}")
+            print(f"[API] Ошибка открытия вкладки в браузере {port}: {e}")
+            raise RuntimeError(f"Не удалось открыть вкладку в браузере {port}: {e}")
+
+    def _open_in_yandex_debug_browser(self, url):
+        """Открывает URL новой вкладкой в отладочном Chrome (порт 9229) через CDP /json/new."""
+        return self._open_in_debug_browser("yandex", url).get("webSocketDebuggerUrl", "")
 
     def _wait_for_yandex_token(self, ws_url, timeout=180):
         """Опрашивает страницу авторизации через WebSocket CDP (селектор токена implicit-потока)."""
@@ -881,18 +952,232 @@ class Api:
 
     def _open_in_google_debug_browser(self, url):
         """Открывает URL новой вкладкой в отладочном Chrome (порт 9227) через CDP /json/new."""
+        self._open_in_debug_browser("google", url)
+        return True
+
+    # ======================== BING OAUTH ========================
+
+    def _get_bing_app_config(self):
+        if not os.path.exists(self.bing_app_config_path):
+            return None
         try:
-            import urllib.parse
-            resp = requests.put(
-                f"http://127.0.0.1:9227/json/new?{urllib.parse.quote(url, safe='')}",
-                timeout=5,
-            )
-            if resp.status_code != 200:
-                raise RuntimeError(f"CDP ответил HTTP {resp.status_code}")
-            return True
+            with open(self.bing_app_config_path, "r", encoding="utf-8-sig") as f:
+                data = json.load(f)
         except Exception as e:
-            print(f"[API] Ошибка открытия вкладки в браузере 9227: {e}")
-            raise RuntimeError(f"Не удалось открыть вкладку в браузере 9227: {e}")
+            print(f"[API] Ошибка чтения bing/app_config.json: {e}")
+            return None
+        return data if isinstance(data, dict) else None
+
+    def _load_bing_accounts(self):
+        data = {}
+        if os.path.exists(self.bing_accounts_path):
+            try:
+                with open(self.bing_accounts_path, "r", encoding="utf-8-sig") as f:
+                    loaded = json.load(f)
+                data = loaded.get("accounts", loaded) if isinstance(loaded, dict) else {}
+            except Exception as e:
+                print(f"[API] Ошибка чтения bing/accounts.json: {e}")
+        return data
+
+    def _save_bing_accounts(self, accounts):
+        os.makedirs(self.bing_dir, exist_ok=True)
+        with open(self.bing_accounts_path, "w", encoding="utf-8") as f:
+            json.dump({"accounts": accounts}, f, ensure_ascii=False, indent=4)
+
+    def _bing_post_token(self, data, log):
+        """Обмен кода/refresh_token на токены. Пробует оба эндпоинта из документации."""
+        last_error = ""
+        for url in BING_TOKEN_URLS:
+            try:
+                r = requests.post(url, data=data, timeout=20)
+            except Exception as e:
+                last_error = f"{url}: {e}"
+                continue
+            if r.status_code == 200:
+                try:
+                    return r.json()
+                except Exception as e:
+                    last_error = f"{url}: не удалось разобрать ответ ({e})"
+                    continue
+            last_error = f"HTTP {r.status_code} {r.text[:200]}"
+            log.append(f"ℹ️ {url} не подошёл: {last_error}")
+        raise RuntimeError(f"Bing не отдал токены ({last_error})")
+
+    def _bing_exchange_code(self, app_cfg, code, redirect_uri, log):
+        """Authorization code -> access_token + refresh_token (код живёт 5 минут)."""
+        return self._bing_post_token({
+            "code": code,
+            "client_id": (app_cfg.get("client_id") or "").strip(),
+            "client_secret": (app_cfg.get("client_secret") or "").strip(),
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        }, log)
+
+    def _bing_api(self, access_token, method, params=None, body=None, timeout=30):
+        """Запрос к Bing Webmaster API. Возвращает (status, payload, error)."""
+        url = f"{BING_API_BASE}/{method}"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=utf-8",
+        }
+        try:
+            if body is None:
+                r = requests.get(url, params=params or {}, headers=headers, timeout=timeout)
+            else:
+                r = requests.post(url, params=params or {}, headers=headers,
+                                  data=json.dumps(body), timeout=timeout)
+        except Exception as e:
+            return None, None, str(e)
+        try:
+            payload = r.json()
+        except Exception:
+            payload = {}
+        error = ""
+        if r.status_code != 200:
+            error = f"HTTP {r.status_code}: {(payload or {}).get('Message') or r.text[:200]}"
+        return r.status_code, payload, error
+
+    def _bing_account_email(self, access_token):
+        """Email аккаунта: отдельного эндпоинта профиля у Bing нет — берём Email
+        из ролей первого сайта (GetUserSites -> GetSiteRoles)."""
+        status, payload, error = self._bing_api(access_token, "GetUserSites")
+        if status != 200:
+            return "", error
+        sites = (payload or {}).get("d") or []
+        site_url = next(((s or {}).get("Url", "") for s in sites if (s or {}).get("Url")), "")
+        if not site_url:
+            return "", "у аккаунта нет сайтов"
+
+        status, payload, error = self._bing_api(
+            access_token, "GetSiteRoles",
+            params={"siteUrl": site_url, "includeAllSubdomains": "true"})
+        if status != 200:
+            return "", error
+        for role in ((payload or {}).get("d") or []):
+            for key in ("Email", "DelegatorEmail", "DelegatedCodeOwnerEmail"):
+                value = (role or {}).get(key, "")
+                if value:
+                    return value, ""
+        return "", "в ролях сайта нет email"
+
+    def _wait_for_bing_code(self, redirect_uri, timeout=BING_AUTH_TIMEOUT):
+        """Ждёт редиректа с ?code= на зарегистрированный redirect_uri (CDP /json/list).
+
+        Bing отдаёт код только через redirect_uri, поэтому читаем адресную строку вкладки:
+        даже если по этому URI ничего не слушается, Chrome оставляет URL с кодом.
+        Возвращает ("code"|"error"|"timeout", значение, url).
+        """
+        import urllib.parse
+        port = self._browser_port("bing")
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                r = requests.get(f"http://127.0.0.1:{port}/json/list", timeout=5)
+                targets = r.json() if r.status_code == 200 else []
+            except Exception:
+                targets = []
+            for target in targets:
+                url = target.get("url", "") or ""
+                if not url.startswith(redirect_uri):
+                    continue
+                query = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+                if query.get("code"):
+                    return "code", query["code"][0], url
+                if query.get("error"):
+                    return "error", query.get("error_description", [""])[0] or query["error"][0], url
+            time.sleep(1.5)
+        return "timeout", "", ""
+
+    def bing_authorize(self):
+        """OAuth 2.0 Bing Webmaster: вкладка авторизации в браузере 9225, код из адресной строки."""
+        import urllib.parse
+        log = []
+
+        if not self.check_browser("bing").get("running"):
+            return {"success": False,
+                    "message": "Браузер Bing (порт 9225) не запущен. Откройте его кнопкой «🌐 Браузер»"}
+
+        app_cfg = self._get_bing_app_config()
+        if not app_cfg:
+            return {"success": False,
+                    "message": "Не найден файл bing/app_config.json (данные приложения Bing)"}
+
+        client_id = (app_cfg.get("client_id") or "").strip()
+        client_secret = (app_cfg.get("client_secret") or "").strip()
+        redirect_uri = (app_cfg.get("redirect_uri") or "").strip()
+        missing = [name for name, value in (("client_id", client_id),
+                                            ("client_secret", client_secret),
+                                            ("redirect_uri", redirect_uri)) if not value]
+        if missing:
+            return {"success": False,
+                    "message": f"В bing/app_config.json не заполнено: {', '.join(missing)}"}
+
+        scope = (app_cfg.get("scope") or "").strip() or BING_DEFAULT_SCOPE
+        auth_url = f"{BING_AUTH_URL}?{urllib.parse.urlencode({
+            'response_type': 'code',
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'scope': scope,
+        })}"
+
+        try:
+            self._open_in_debug_browser("bing", auth_url)
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+        log.append(f"🔑 Открыта вкладка авторизации Bing: {auth_url}")
+
+        kind, value, page_url = self._wait_for_bing_code(redirect_uri)
+        if kind == "error":
+            return {"success": False, "message": f"Bing отклонил авторизацию: {value}", "log": log}
+        if kind != "code":
+            return {"success": False,
+                    "message": f"Таймаут ({BING_AUTH_TIMEOUT} сек): код не получен. "
+                               "Авторизуйтесь в открывшейся вкладке браузера 9225",
+                    "log": log}
+        log.append(f"✅ Код получен: {page_url}")
+
+        try:
+            tokens = self._bing_exchange_code(app_cfg, value, redirect_uri, log)
+        except Exception as e:
+            return {"success": False, "message": str(e), "log": log}
+
+        access_token = tokens.get("access_token", "") or ""
+        refresh_token = tokens.get("refresh_token", "") or ""
+        expires_in = int(tokens.get("expires_in") or 3599)
+        if not access_token or not refresh_token:
+            return {"success": False,
+                    "message": "Bing вернул ответ без access_token/refresh_token", "log": log}
+
+        email, error = self._bing_account_email(access_token)
+        if not email:
+            accounts = self._load_bing_accounts()
+            email = f"account-{len(accounts) + 1}"
+            log.append(f"ℹ️ Email определить не удалось ({error}), аккаунт сохранён как «{email}»")
+
+        accounts = self._load_bing_accounts()
+        accounts[email] = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_expiry": int(time.time()) + expires_in - 60,
+        }
+        self._save_bing_accounts(accounts)
+
+        config = self.get_config("bing")
+        config["active_account"] = email
+        self.save_config("bing", config)
+
+        # Диагностика — в консоль разработчика GUI (result.log печатает bingAuthorize)
+        log.append(f"👤 Аккаунт: {email}")
+        log.append(f"🔑 access_token: {access_token}")
+        log.append(f"🔄 refresh_token: {refresh_token[:8]}… (сохранён в bing/accounts.json)")
+        log.append(f"⏳ access_token истекает через {expires_in} сек")
+
+        return {"success": True, "account": email, "log": log}
+
+    def get_bing_accounts(self):
+        accounts = self._load_bing_accounts()
+        config = self.get_config("bing")
+        return {"success": True, "accounts": list(accounts.keys()), "active": config.get("active_account", "")}
 
 def main():
     shell32 = ctypes.windll.shell32

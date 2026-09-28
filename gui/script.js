@@ -136,11 +136,12 @@ function skipUpdate() {
 
 // ======================== КЛЮЧИ ========================
 
-window._scriptsData = { yandex: {}, google: {} };
+window._scriptsData = { yandex: {}, google: {}, bing: {} };
 
 const serviceFields = {
     yandex: ['active_account', 'metric_id', 'contact_path', 'sitemap_path'],
-    google: ['active_account', 'sitemap_path']
+    google: ['active_account', 'sitemap_path'],
+    bing: ['active_account']
 };
 
 // Человекочитаемые названия ключей для toast-уведомлений
@@ -188,7 +189,8 @@ const SCRIPT_REQUIREMENTS = {
         gsc_delete_sitemaps_except: ['active_account', 'links'],
         gsc_export_test:        ['active_account'],
         gsc_sitemap_test:       ['active_account']
-    }
+    },
+    bing: {}
 };
 
 function getSubcategoryForScript(service, script) {
@@ -322,9 +324,10 @@ function getInputValue(id) {
 
 async function loadGlobalKeys() {
     try {
-        const [yandexCfg, googleCfg] = await Promise.all([
+        const [yandexCfg, googleCfg, bingCfg] = await Promise.all([
             window.pywebview.api.get_config('yandex'),
-            window.pywebview.api.get_config('google')
+            window.pywebview.api.get_config('google'),
+            window.pywebview.api.get_config('bing')
         ]);
 
         setKeyValue('yandex', 'active_account', yandexCfg.active_account);
@@ -333,9 +336,12 @@ async function loadGlobalKeys() {
         setKeyValue('yandex', 'sitemap_path', yandexCfg.sitemap_path);
 
         setKeyValue('google', 'sitemap_path', googleCfg.sitemap_path);
+        setKeyValue('bing', 'active_account', bingCfg.active_account);
 
-        const [ya, ga] = await Promise.all([refreshYandexAccounts(), refreshGoogleAccounts()]);
-        return `✅ Загружено ключей (аккаунтов: Яндекс ${(ya || []).length}, Google ${(ga || []).length})`;
+        const [ya, ga, ba] = await Promise.all([
+            refreshYandexAccounts(), refreshGoogleAccounts(), refreshBingAccounts()
+        ]);
+        return `✅ Загружено ключей (аккаунтов: Яндекс ${(ya || []).length}, Google ${(ga || []).length}, Bing ${(ba || []).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки ключей: ${err.message}`);
         return null;
@@ -446,15 +452,69 @@ async function googleAuthorize() {
     }
 }
 
+async function refreshBingAccounts() {
+    try {
+        const res = await window.pywebview.api.get_bing_accounts();
+        const accounts = (res && res.accounts) || [];
+        const active = (res && res.active) || '';
+        const options = accounts.length
+            ? accounts.map(a => `<option value="${escHtml(a)}"${a === active ? ' selected' : ''}>${escHtml(a)}</option>`).join('')
+            : '<option value="">— аккаунт не авторизован —</option>';
+
+        document.querySelectorAll('[data-service="bing"][data-field="active_account"]').forEach(sel => {
+            sel.innerHTML = options;
+            sel.value = accounts.includes(active) ? active : '';
+        });
+
+        if (!active && accounts.length === 1) {
+            await window.pywebview.api.save_config('bing', { active_account: accounts[0] });
+            setKeyValue('bing', 'active_account', accounts[0]);
+        }
+        return accounts;
+    } catch (err) {
+        addLoaderLog(`⚠️ Ошибка загрузки Bing-аккаунтов: ${err.message}`);
+        return [];
+    }
+}
+
+async function bingAuthorize() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '⏳ Авторизация...';
+    try {
+        const browser = await window.pywebview.api.check_browser('bing');
+        if (!browser.running) {
+            showToast('Откройте браузер кнопкой "🌐 Браузер (порт 9225)"', 'error');
+            return;
+        }
+        showToast('Авторизуйтесь в открывшейся вкладке браузера (порт 9225)...', 'info');
+        const result = await window.pywebview.api.bing_authorize();
+        if (result.log) result.log.forEach(line => console.log(`[bing-auth] ${line}`));
+        if (result.success) {
+            await refreshBingAccounts();
+            showToast(`Аккаунт ${result.account} авторизован`, 'success');
+        } else {
+            showToast(result.message || 'Авторизация не удалась', 'error');
+        }
+    } catch (err) {
+        showToast(`Ошибка: ${err.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔑 Авторизоваться';
+    }
+}
+
 async function loadScriptsData() {
     try {
-        const [yData, gData] = await Promise.all([
+        const [yData, gData, bData] = await Promise.all([
             window.pywebview.api.get_scripts_data('yandex'),
-            window.pywebview.api.get_scripts_data('google')
+            window.pywebview.api.get_scripts_data('google'),
+            window.pywebview.api.get_scripts_data('bing')
         ]);
         window._scriptsData.yandex = yData || {};
         window._scriptsData.google = gData || {};
-        return `✅ Загружено списков скриптов (Яндекс: ${Object.keys(yData || {}).length}, Google: ${Object.keys(gData || {}).length})`;
+        window._scriptsData.bing = bData || {};
+        return `✅ Загружено списков скриптов (Яндекс: ${Object.keys(yData || {}).length}, Google: ${Object.keys(gData || {}).length}, Bing: ${Object.keys(bData || {}).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки списков скриптов: ${err.message}`);
         return null;
@@ -536,26 +596,31 @@ function toggleAccordion(id) {
 
 // ======================== РЕЕСТР И СКРИПТЫ ========================
 
-window._registries = { yandex: null, google: null };
-window._scriptsLists = { yandex: [], google: [] };
+window._registries = { yandex: null, google: null, bing: null };
+window._scriptsLists = { yandex: [], google: [], bing: [] };
 
 async function loadScriptsLists() {
     try {
-        const [yReg, gReg, yRes, gRes] = await Promise.all([
+        const [yReg, gReg, bReg, yRes, gRes, bRes] = await Promise.all([
             window.pywebview.api.get_registry('yandex'),
             window.pywebview.api.get_registry('google'),
+            window.pywebview.api.get_registry('bing'),
             window.pywebview.api.get_scripts_list('yandex'),
-            window.pywebview.api.get_scripts_list('google')
+            window.pywebview.api.get_scripts_list('google'),
+            window.pywebview.api.get_scripts_list('bing')
         ]);
 
         window._registries.yandex = yReg;
         window._registries.google = gReg;
+        window._registries.bing = bReg;
         window._scriptsLists.yandex = yRes.scripts || [];
         window._scriptsLists.google = gRes.scripts || [];
+        window._scriptsLists.bing = bRes.scripts || [];
 
         renderServicePage('yandex');
         renderServicePage('google');
-        return `✅ Загружены скрипты (Яндекс: ${(yRes.scripts || []).length}, Google: ${(gRes.scripts || []).length})`;
+        renderServicePage('bing');
+        return `✅ Загружены скрипты (Яндекс: ${(yRes.scripts || []).length}, Google: ${(gRes.scripts || []).length}, Bing: ${(bRes.scripts || []).length})`;
     } catch (err) {
         addLoaderLog(`⚠️ Ошибка загрузки скриптов: ${err.message}`);
         return null;
@@ -596,7 +661,7 @@ function renderServicePage(service) {
 
 // ======================== НАВИГАЦИЯ ПО КАТЕГОРИЯМ ========================
 
-let activeCategory = { yandex: null, google: null };
+let activeCategory = { yandex: null, google: null, bing: null };
 
 function subModes(sub) {
     return Array.isArray(sub.modes) && sub.modes.length ? sub.modes : [sub.type === 'api' ? 'API' : 'Browser'];
@@ -731,7 +796,7 @@ function positionDropdown(dropdown, btn) {
 }
 
 function repositionNav() {
-    ['yandex', 'google'].forEach(srv => {
+    ['yandex', 'google', 'bing'].forEach(srv => {
         const nav = document.getElementById(`${srv}-category-nav`);
         if (nav) positionTooltips(nav);
     });

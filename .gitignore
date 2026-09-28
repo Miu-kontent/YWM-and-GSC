@@ -9,6 +9,10 @@ google/app_config.json
 google/accounts.json
 google/config.json
 google/arrays/*
+bing/app_config.json
+bing/accounts.json
+bing/config.json
+bing/arrays/*
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
