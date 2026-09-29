@@ -365,7 +365,8 @@ class Api:
             },
             # Bing: аккаунт выбирается после OAuth-авторизации
             "bing": {
-                "active_account": ""
+                "active_account": "",
+                "sitemap_path": ""
             },
         }.get(service, {}).copy()
 
