@@ -31,6 +31,7 @@
     /* Теневые и системные элементы */
     --shadow: 0 4px 20px rgba(0,0,0,0.4);
     --overlay-bg: rgba(0, 0, 0, 0.7);
+    --scrollbar-thumb: rgba(141, 153, 174, 0.38);
 
     --status-running: #dfb15b;
 }
@@ -72,6 +73,8 @@
     /* Мягкая тень, чтобы карточки "парили" над серым фоном */
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 
+    --scrollbar-thumb: #c3ccd9;
+
     --status-running: #2563eb;
 }
 
@@ -84,6 +87,23 @@ body {
     line-height: 1.5;
     min-height: 100vh;
 }
+
+/* --- Скроллбары (тонкие, в стиле темы) ---
+   Покрывают разом страницу, .table-wrapper, .logs-container и #loader-logs.
+   ВНИМАНИЕ: стандартные scrollbar-width / scrollbar-color здесь НЕ задаются —
+   Chromium молча проигнорирует ::-webkit-scrollbar для того же элемента.
+   Приложение работает только в WebView2 (Chromium), другого движка нет. */
+html { scrollbar-gutter: stable; }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border: 3px solid transparent; /* приём content-box делает полосу тонкой */
+    background-clip: content-box;
+    border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 
 /* УНИВЕРСАЛЬНАЯ БИБЛИОТЕКА КОМПОНЕНТОВ */
 
@@ -176,7 +196,9 @@ select.form-control {
 .list--vertical { display: flex; flex-direction: column; gap: 8px; }
 
 /* --- Таблицы (Tables) --- */
-.table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; max-height: 500px; overflow-y: auto; }
+/* Высота адаптивная вместо жёстких 500px: на развёрнутом окне таблица
+   занимает почти всё окно, на маленьком — растёт меньше прежнего. */
+.table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; max-height: min(62vh, 760px); overflow-y: auto; overscroll-behavior: contain; }
 .table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; user-select: text; }
 .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; cursor: text; -webkit-user-select: text; }
 .table th { background: var(--bg-card); font-weight: 600; color: var(--text-muted); position: sticky; top: 0; }
@@ -273,8 +295,9 @@ select.form-control {
 /* Логи */
 .logs-container {
     background: var(--bg-body); border: 1px solid var(--border-color);
-    border-radius: 8px; padding: 12px; min-height: 150px; max-height: 300px;
-    overflow-y: auto; font-family: monospace; font-size: 12px; line-height: 1.6;
+    border-radius: 8px; padding: 12px; min-height: 150px; max-height: min(34vh, 380px);
+    overflow-y: auto; overscroll-behavior: contain;
+    font-family: monospace; font-size: 12px; line-height: 1.6;
 }
 .log-line { margin: 2px 0; white-space: pre-wrap; word-break: break-word; }
 .log-line.error { color: var(--status-error-text); }
