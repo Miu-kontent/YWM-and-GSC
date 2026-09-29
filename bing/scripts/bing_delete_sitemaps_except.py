@@ -111,6 +111,8 @@ def main():
     if not keep_sitemaps:
         print("❌ Для запуска скрипта обязателен список сайтмапов для сохранения (keep_sitemaps).")
         return
+    # Множество путей для сравнения (схема в путях не участвует) — считаем один раз
+    keep_paths = set(keep_sitemaps)
 
     token, email = bc.get_access_token()
     if not token:
@@ -176,12 +178,11 @@ def main():
             table_row([site_url, "—", "ℹ️ Сайтмапы не найдены"])
             continue
 
-        # Формируем множество путей для сохранения (сравниваем по путям, игнорируя схему)
-        keep_paths = set(normalize_keep_paths(keep_sitemaps))
-
+        # Сравниваем фиды по путям, игнорируя схему
         site_kept = 0
         site_deleted = 0
         site_errors = 0
+        kept_feeds = []
         total_feeds = len(feeds)
 
         for idx, feed in enumerate(feeds, 1):
@@ -197,6 +198,7 @@ def main():
 
             if matched:
                 site_kept += 1
+                kept_feeds.append(feed_path)
             else:
                 # удаляем
                 ok, _, error = bc.call("RemoveFeed", body={"siteUrl": site_url, "feedUrl": feed_url})
@@ -222,7 +224,9 @@ def main():
         kept += site_kept
         deleted += site_deleted
 
-        table_row([site_url, " / ".join(keep_sitemaps), status_text])
+        # Показываем реально оставленные фиды этого сайта, а не весь введённый список:
+        # с delete_www часть путей могла быть удалена несмотря на попадание в список.
+        table_row([site_url, " / ".join(kept_feeds) if kept_feeds else "—", status_text])
 
     summary = {
         "Сайтов": total,

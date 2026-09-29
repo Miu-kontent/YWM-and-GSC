@@ -47,6 +47,15 @@ BING_DEFAULT_SCOPE = "webmaster.manage"
 # Сколько ждём редиректа с кодом авторизации (вход в Microsoft + согласие).
 BING_AUTH_TIMEOUT = 300
 
+# Сколько символов хвоста токена показываем в диагностике авторизации.
+TOKEN_TAIL_LEN = 8
+
+
+def _mask_token(token):
+    """Хвост токена для лога: секрет целиком в лог не пишем."""
+    token = str(token or "")
+    return token[-TOKEN_TAIL_LEN:] if token else "—"
+
 # Профили дебаг-браузеров (debug_profiles/<profile>) хранят входы/сессии (Cookies,
 # Local Storage и т.п. — их НЕ трогаем). При старте программы точечно удаляем только
 # перекачиваемые кэши и компоненты, чтобы профили не разрастались (см. clean_browser_cache).
@@ -1166,10 +1175,12 @@ class Api:
         config["active_account"] = email
         self.save_config("bing", config)
 
-        # Диагностика — в консоль разработчика GUI (result.log печатает bingAuthorize)
+        # Диагностика — в консоль разработчика GUI (result.log печатает bingAuthorize).
+        # Значения токенов не пишем: показываем только хвост, сверить с accounts.json
+        # по восьми символам хватает, а в логе токен светиться не должен.
         log.append(f"👤 Аккаунт: {email}")
-        log.append(f"🔑 access_token: {access_token}")
-        log.append(f"🔄 refresh_token: {refresh_token[:8]}… (сохранён в bing/accounts.json)")
+        log.append(f"🔑 access_token: …{_mask_token(access_token)}")
+        log.append(f"🔄 refresh_token: …{_mask_token(refresh_token)} (сохранён в bing/accounts.json)")
         log.append(f"⏳ access_token истекает через {expires_in} сек")
 
         return {"success": True, "account": email, "log": log}

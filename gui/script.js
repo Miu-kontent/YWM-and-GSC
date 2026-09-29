@@ -196,7 +196,7 @@ const SCRIPT_REQUIREMENTS = {
         bing_add_sitemap:               ['active_account', 'sitemap_path'],
         bing_verify:                    ['active_account'],
         bing_delete_sitemap:            ['active_account'],
-        bing_delete_sitemaps_except:    ['active_account', 'links'],
+        bing_delete_sitemaps_except:    ['active_account', 'links', 'keep_sitemaps'],
         bing_export_test:               ['active_account']
     }
 };
@@ -214,7 +214,7 @@ function getSubcategoryForScript(service, script) {
 
 // ======================== СТАТУСНЫЕ РАМКИ ========================
 
-const scriptUiState = {}; // scriptId -> 'running' | 'success' | 'error' | null
+const scriptUiState = {}; // scriptId -> 'running' | 'success' | 'warning' | 'error' | null
 
 function findCategoryForScript(service, script) {
     const registry = window._registries[service];
@@ -229,23 +229,24 @@ function findCategoryForScript(service, script) {
 
 function refreshCategoryBorder(service, cat) {
     const subs = (cat.subcategories || []).filter(s => s.script);
-    let running = false, error = false, success = false;
+    let running = false, error = false, warning = false, success = false;
     subs.forEach(sub => {
         const st = scriptUiState[`${service}-${sub.script}`];
         if (st === 'running') running = true;
         else if (st === 'error') error = true;
+        else if (st === 'warning') warning = true;
         else if (st === 'success') success = true;
     });
-    const status = running ? 'running' : error ? 'error' : success ? 'success' : null;
+    const status = running ? 'running' : error ? 'error' : warning ? 'warning' : success ? 'success' : null;
 
     document.querySelectorAll(`.category-btn[data-service="${service}"][data-cat="${cat.id}"]`)
         .forEach(el => {
-            el.classList.remove('cat-running', 'cat-success', 'cat-error');
+            el.classList.remove('cat-running', 'cat-success', 'cat-warning', 'cat-error');
             if (status) el.classList.add(`cat-${status}`);
         });
     document.querySelectorAll(`.subcategory-item[data-service="${service}"][data-cat="${cat.id}"]`)
         .forEach(el => {
-            el.classList.remove('sub-running', 'sub-success', 'sub-error');
+            el.classList.remove('sub-running', 'sub-success', 'sub-warning', 'sub-error');
             const st = el.dataset.script ? scriptUiState[`${service}-${el.dataset.script}`] : null;
             if (st) el.classList.add(`sub-${st}`);
         });
@@ -257,7 +258,7 @@ function setScriptUiStatus(service, script, status) {
 
     const card = document.getElementById(`${scriptId}-card`);
     if (card) {
-        card.classList.remove('script-running', 'script-success', 'script-error');
+        card.classList.remove('script-running', 'script-success', 'script-warning', 'script-error');
         if (status) card.classList.add(`script-${status}`);
     }
 

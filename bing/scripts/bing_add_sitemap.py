@@ -2,7 +2,14 @@
 bing_add_sitemap.py — добавление sitemap в Bing Webmaster.
 
 Для каждого сайта аккаунта (или из списка links) проверяет наличие sitemap
-через GetFeeds и, если его нет, отправляет SubmitFeed.
+через GetFeeds и, если его нет, отправляет SubmitFeed. Показывает фактическое
+состояние сайтмапа, как gsc_add_sitemap.py:
+    ✅ Успешно     — сайтмап есть и обработан Bing
+    ✅ Добавлен    — сайтмап только что отправлен
+    ⭐ Добавлен ранее — гонка при отправке (сайтмап уже появился)
+    ⏳ В обработке — сайтмап есть, но ещё не обработан
+    ❌ Ошибка      — сайтмап есть, но с ошибкой
+    ❌ Не найден в Bing / ❌ Не подтверждён — структурные проблемы
 
 Вход (../arrays/bing_add_sitemap.json):
     links — сайты (по одному на строку), пусто = все сайты аккаунта.
@@ -11,7 +18,7 @@ sitemap_path — обязательный ключ в bing/config.json
 (в GUI: Ключи Bing → Путь сайтмапа).
 
 Формат таблицы: Сайт | Сайтмап | Статус.
-Сводка: Сайтов | Путь сайтмапа | Успешно | Ошибок.
+Сводка: Сайтов | Путь сайтмапа | Успешно | Для переотправки.
 """
 import json
 import os
@@ -66,6 +73,19 @@ def normalize_path(path):
     return path
 
 
+def summary(total, sitemap_path, success, resend, stopped=False):
+    """Единая сводка: и для полного прогона, и для остановки по дневному лимиту."""
+    data = {
+        "Сайтов": total,
+        "Путь сайтмапа": sitemap_path,
+        "Успешно": success,
+        "Для переотправки": resend,
+    }
+    if stopped:
+        data["Прервано по лимиту"] = True
+    return data
+
+
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
@@ -106,7 +126,7 @@ def main():
     total = len(targets)
     print(f"ℹ️  Сайтов обрабатывается: {total}")
 
-    success = errors = 0
+    success = resend = 0
     processed = 0
 
     for site_url, site_info in targets:
@@ -114,7 +134,7 @@ def main():
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
 
         if site_info is None:
-            errors += 1
+            resend += 1
             table_row([site_url, "—", "❌ Не найден в Bing"])
             continue
 
@@ -124,7 +144,7 @@ def main():
 
         verified = bool(site_info.get("IsVerified"))
         if not verified:
-            errors += 1
+            resend += 1
             table_row([site_url, "—", "❌ Не подтверждён"])
             continue
 
@@ -133,7 +153,7 @@ def main():
         # Проверяем существующие фиды
         ok, data_feeds, error = bc.call("GetFeeds", {"siteUrl": site_url})
         if not ok:
-            errors += 1
+            resend += 1
             table_row([site_url, feed_url, f"❌ {error}"])
             continue
 
@@ -142,8 +162,12 @@ def main():
 
         if existing:
             # Сайтмап уже есть — показываем реальный статус из Bing
-            status = existing[0].get("Status", "Unknown")
-            table_row([site_url, feed_url, status])
+            feed = existing[0]
+            table_row([site_url, feed_url, bc.feed_health_label(feed)])
+            if bc.feed_needs_resend(feed):
+                resend += 1
+            else:
+                success += 1
             continue
 
         # Сайтмапа нет — добавляем через SubmitFeed
@@ -159,30 +183,17 @@ def main():
                 if 'throttleuser' in err or 'errorcode 4' in err or 'errorcode=4' in err:
                     print(f"⛔ Дневной лимит на добавление сайтмапов исчерпан (ErrorCode 4: ThrottleUser).")
                     print(f"ℹ️  Попробуйте снова завтра. Обработано {processed} из {total} сайтов.")
-                    # Выводим частичную сводку и завершаем с кодом 100
-                    summary = {
-                        "Сайтов": total,
-                        "Путь сайтмапа": sitemap_path,
-                        "Успешно": success,
-                        "Ошибок": errors,
-                        "Прервано по лимиту": True,
-                    }
-                    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+                    # Частичная сводка и выход с кодом 100
+                    print(f'__SUMMARY__:{json.dumps(summary(total, sitemap_path, success, resend, stopped=True), ensure_ascii=False)}')
                     print('__TABLE_DONE__:{}')
                     sys.exit(100)
-                errors += 1
+                resend += 1
                 table_row([site_url, feed_url, f"❌ {error}"])
         else:
             success += 1
             table_row([site_url, feed_url, "✅ Добавлен"])
 
-    summary = {
-        "Сайтов": total,
-        "Путь сайтмапа": sitemap_path,
-        "Успешно": success,
-        "Ошибок": errors,
-    }
-    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+    print(f'__SUMMARY__:{json.dumps(summary(total, sitemap_path, success, resend), ensure_ascii=False)}')
     print('__TABLE_DONE__:{}')
 
 

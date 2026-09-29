@@ -159,6 +159,48 @@ def site_root(site_url):
     return site_url if site_url.endswith('/') else site_url + '/'
 
 
+# Строки Status, по которым фид считаем незавершённым (в живом прогоне
+# встречались Success и Failed, остальные — подвисание на обработке).
+FEED_PENDING_WORDS = ('pend', 'wait', 'process', 'submit', 'progress', 'index', 'queue', 'new')
+
+
+def feed_health(feed):
+    """Здоровье фида по строке Status из Bing: 'ok' | 'pending' | 'error' | 'unknown'."""
+    text = str((feed or {}).get("Status") or '').strip()
+    low = text.lower()
+    if not low:
+        return 'unknown'
+    if 'success' in low or low in ('ok', 'done', 'ready'):
+        return 'ok'
+    if 'fail' in low or 'error' in low:
+        return 'error'
+    if any(word in low for word in FEED_PENDING_WORDS):
+        return 'pending'
+    return 'unknown'
+
+
+def feed_health_label(feed):
+    """Подпись статуса фида для таблицы (для неизвестного Status — сам текст)."""
+    health = feed_health(feed)
+    if health == 'ok':
+        return "✅ Успешно"
+    if health == 'pending':
+        return "⏳ В обработке"
+    if health == 'error':
+        return "❌ Ошибка"
+    text = str((feed or {}).get("Status") or '').strip()
+    return f"ℹ️ {text}" if text else "—"
+
+
+def feed_needs_resend(feed):
+    """Фид не в хорошем состоянии и попадает в повторную отправку.
+
+    Это всё, что не 'ok': с ошибкой, в обработке и нераспознанный Status —
+    неизвестное значение не считаем успехом.
+    """
+    return feed_health(feed) != 'ok'
+
+
 def ms_date(value):
     """/Date(1314031258933-0700)/ или ISO-строка → 'дд.мм.гггг чч:мм'.
 
@@ -354,7 +396,9 @@ def call(method, params=None, body=None, pause=True):
 
     При 401 на основном хосте ИЛИ при сетевых ошибках (DNS, timeout, connection)
     запрос повторяется на ssl.bing.com.
-    Ретраи — на троттлинг (ErrorCode 4/5), 429 и 5xx.
+    Ретраи — на троттлинг по сайту (ErrorCode 5), 429 и 5xx.
+    ErrorCode 4 (ThrottleUser, дневной лимит) не ретраится: повтор не поможет,
+    скрипты останавливаются с кодом 100.
     """
     global _active_host
 

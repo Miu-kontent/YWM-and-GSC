@@ -4,6 +4,13 @@ bing_add_sites.py — массовое добавление сайтов в Bing
 Аналог google/scripts/gsc_add_sites.py: GetUserSites + AddSite.
 Повторный AddSite не бросает исключение (по документации), но всё равно
 сначала проверяем существующие, чтобы не гонять лишние запросы.
+
+Адрес для AddSite — хост со схемой из ввода (для голого домена https) и
+слешем: Bing хранит свойства именно в таком виде.
+
+Статусы: ✅ Добавлен | ⭐ Подтверждён (был и подтверждён) |
+ℹ️ Добавлен ранее | ❌ Ошибка.
+Сводка: Сайты | Добавлено (в т.ч. ранее) | Подтверждено | Ошибок.
 """
 import json
 import os
@@ -94,6 +101,19 @@ def build_site_url_alt(raw):
     return f"{other}://{host}/"
 
 
+def summary(total, added, earlier, confirmed, errors, stopped=False):
+    """Единая сводка: и для полного прогона, и для остановки по дневному лимиту."""
+    data = {
+        "Сайты": total,
+        "Добавлено": added + earlier,
+        "Подтверждено": confirmed,
+        "Ошибок": errors,
+    }
+    if stopped:
+        data["Прервано по лимиту"] = True
+    return data
+
+
 def is_already_exists_error(error_str):
     """Проверка, что ошибка означает «сайт уже есть»."""
     if not error_str:
@@ -130,13 +150,17 @@ def main():
     existing_sites = as_list(data_sites)
     # Сравниваем по хосту (normalize_host убирает схему и путь)
     existing_hosts = {normalize_host(s.get("Url")) for s in existing_sites if s.get("Url")}
+    verified_hosts = {normalize_host(s.get("Url")) for s in existing_sites
+                      if s.get("Url") and s.get("IsVerified")}
     print(f"ℹ️  Уже в Bing: {len(existing_hosts)} сайтов")
     if existing_hosts:
         print(f"ℹ️  Примеры: {', '.join(sorted(list(existing_hosts))[:5])}")
 
     total = len(links)
     added = earlier = errors = 0
+    confirmed = 0
     processed = 0
+    processed_hosts = set()
 
     for raw in links:
         processed += 1
@@ -152,10 +176,15 @@ def main():
 
         if host in existing_hosts:
             earlier += 1
-            table_row([site_url, "ℹ️ Добавлен ранее"])
+            processed_hosts.add(host)
+            if host in verified_hosts:
+                confirmed += 1
+                table_row([site_url, "⭐ Подтверждён"])
+            else:
+                table_row([site_url, "ℹ️ Добавлен ранее"])
             continue
 
-        # 2. Добавляем новый сайт — пробуем http, потом https
+        # 2. Добавляем новый сайт — основная схема, потом запасная
         ok, data_add, error = bc.call("AddSite", body={"siteUrl": site_url})
         if not ok:
             # Проверка на дневной лимит (ErrorCode 4 = ThrottleUser) — сразу останавливаемся
@@ -163,19 +192,14 @@ def main():
             if 'throttleuser' in err or 'errorcode 4' in err or 'errorcode=4' in err:
                 print(f"⛔ Дневной лимит на добавление сайтов исчерпан (ErrorCode 4: ThrottleUser).")
                 print(f"ℹ️  Попробуйте снова завтра. Обработано {processed} из {total} сайтов.")
-                summary = {
-                    "Сайты": total,
-                    "Добавлено": added + earlier,
-                    "Ошибок": errors,
-                    "Прервано по лимиту": True,
-                }
-                print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+                print(f'__SUMMARY__:{json.dumps(summary(total, added, earlier, confirmed, errors, stopped=True), ensure_ascii=False)}')
                 print('__TABLE_DONE__:{}')
                 sys.exit(100)
             # Если ошибка «уже существует» — считаем как «добавлен ранее»
             if is_already_exists_error(error):
                 earlier += 1
                 existing_hosts.add(host)
+                processed_hosts.add(host)
                 table_row([site_url, "ℹ️ Добавлен ранее (по ошибке API)"])
                 continue
             # Иначе пробуем другую схему
@@ -186,18 +210,13 @@ def main():
                 if 'throttleuser' in err or 'errorcode 4' in err or 'errorcode=4' in err:
                     print(f"⛔ Дневной лимит на добавление сайтов исчерпан (ErrorCode 4: ThrottleUser).")
                     print(f"ℹ️  Попробуйте снова завтра. Обработано {processed} из {total} сайтов.")
-                    summary = {
-                        "Сайты": total,
-                        "Добавлено": added + earlier,
-                        "Ошибок": errors,
-                        "Прервано по лимиту": True,
-                    }
-                    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+                    print(f'__SUMMARY__:{json.dumps(summary(total, added, earlier, confirmed, errors, stopped=True), ensure_ascii=False)}')
                     print('__TABLE_DONE__:{}')
                     sys.exit(100)
                 if is_already_exists_error(error):
                     earlier += 1
                     existing_hosts.add(host)
+                    processed_hosts.add(host)
                     table_row([site_url_alt, "ℹ️ Добавлен ранее (по ошибке API)"])
                     continue
                 errors += 1
@@ -207,16 +226,22 @@ def main():
 
         # Успех
         existing_hosts.add(host)
+        processed_hosts.add(host)
         added += 1
         table_row([site_url, "✅ Добавлен"])
 
-    summary = {
-        "Сайты": total,
-        "Добавлено": added + earlier,
-        "Подтверждено": 0,
-        "Ошибок": errors,
-    }
-    print(f'__SUMMARY__:{json.dumps(summary, ensure_ascii=False)}')
+    # Признак IsVerified появляется после проверки прав, поэтому перечитываем
+    # список сайтов и считаем реально подтверждённые, а не заведённые вручную 0.
+    ok, data_sites, error = bc.call("GetUserSites")
+    if ok:
+        now = {normalize_host(s.get("Url")): bool(s.get("IsVerified"))
+               for s in as_list(data_sites) if s.get("Url")}
+        confirmed = sum(1 for host in processed_hosts if now.get(host))
+    else:
+        print(f"ℹ️  Не удалось перечитать список сайтов ({error}) — «Подтверждено» по исходным данным")
+        bc.dbg("SITES", "повторный GetUserSites не удался", detail=error)
+
+    print(f'__SUMMARY__:{json.dumps(summary(total, added, earlier, confirmed, errors), ensure_ascii=False)}')
     print('__TABLE_DONE__:{}')
 
 
