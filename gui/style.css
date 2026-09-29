@@ -111,6 +111,13 @@ body {
 .card__icon { font-size: 2rem; }
 .card__body { color: var(--text-muted); font-size: 14px; }
 
+/* --- Блок общего времени работы скриптов (главная) --- */
+.card--total-time { margin-top: 20px; }
+.card--total-time .card__header { margin-bottom: 8px; }
+.total-time { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.total-time__value { font-size: 2rem; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
+.total-time__hint { font-size: 12px; color: var(--text-muted); }
+
 /* --- Кнопки (Buttons) --- */
 .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;

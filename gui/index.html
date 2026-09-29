@@ -104,6 +104,18 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Общее время работы скриптов -->
+                <div class="card card--total-time">
+                    <div class="card__header">
+                        <span class="card__icon">⏱</span> Общее время работы скриптов
+                        <button class="btn btn--secondary" onclick="resetTotalTime()">🔄 Сбросить</button>
+                    </div>
+                    <div class="card__body total-time">
+                        <span class="total-time__value" id="total-time-value">0 сек.</span>
+                        <span class="total-time__hint">учитываются только завершённые и остановленные прогоны</span>
+                    </div>
+                </div>
             </section>
         </section>
 

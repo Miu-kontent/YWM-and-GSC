@@ -16,6 +16,7 @@ bing/arrays/*
 DEVELOPMENT_PLAN.md
 AGENTS.md
 .opencode/
+utils/stats.json
 debug_profiles/*
 Launcher.cs
 Установщик YWM-and-GSC.bat

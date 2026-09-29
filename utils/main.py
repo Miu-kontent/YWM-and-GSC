@@ -465,6 +465,30 @@ class Api:
         except Exception as e:
             print(f"[API] Ошибка генерации {script_name}.json: {e}")
 
+    def _get_stats_path(self):
+        return os.path.join(self.utils_dir, "stats.json")
+
+    def get_total_time(self):
+        path = self._get_stats_path()
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return {"total_ms": int(json.load(f).get("total_ms", 0) or 0)}
+            except Exception as e:
+                print(f"[API] Ошибка чтения общего времени: {e}")
+        return {"total_ms": 0}
+
+    def save_total_time(self, total_ms):
+        try:
+            path = self._get_stats_path()
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"total_ms": int(total_ms)}, f, ensure_ascii=False, indent=4)
+            return {"success": True}
+        except Exception as e:
+            print(f"[API] Ошибка сохранения общего времени: {e}")
+            return {"success": False}
+
     def check_browser(self, service):
         return {"success": True, "running": self._browser_is_running(self._browser_port(service))}
 

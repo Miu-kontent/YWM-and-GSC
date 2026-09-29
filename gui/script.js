@@ -1,5 +1,6 @@
 let runningScripts = {};
 let scriptStartTimes = {};
+let totalElapsedMs = 0;
 
 function onDOMReady(callback) {
     if (document.readyState === 'loading') {
@@ -50,6 +51,7 @@ window.addEventListener('pywebviewready', () => {
             addLoaderLog(`ℹ️ Загрузка скриптов ...`);
             const listsRes = await loadScriptsLists();
             if (listsRes) addLoaderLog(listsRes);
+            await loadTotalTime();
             addLoaderLog(`ℹ️ Очистка кэша браузеров ...`);
             try {
                 const cleanupLogs = await window.pywebview.api.clean_browser_cache();
@@ -1433,11 +1435,65 @@ function formatDuration(ms) {
     return `${minutes} мин. (${comma(totalSec / 3600)} ч.)`;
 }
 
-// «за 83,9 мин. (1,4 ч.)» — пусто, если запуск не зафиксирован (перезагрузка GUI)
-function elapsedFor(scriptId) {
+// Сырое время прогона в мс; null — запуск не зафиксирован (перезагрузка GUI).
+// Проверка именно на null, чтобы «за 0 сек.» не исчезло из строки статуса.
+function elapsedMsFor(scriptId) {
     const started = scriptStartTimes[scriptId];
-    if (!started) return '';
-    return ` за ${formatDuration(Date.now() - started)}`;
+    return started ? Math.max(0, Date.now() - started) : null;
+}
+
+// ======================== ОБЩЕЕ ВРЕМЯ РАБОТЫ СКРИПТОВ ========================
+
+// Формат для блока на главной: при часе — «4,6 ч.» (округление до десятых).
+function formatTotalDuration(ms) {
+    const totalSec = Math.max(0, Math.round(ms / 1000));
+    if (totalSec < 60) return `${totalSec} сек.`;
+    if (totalSec < 3600) {
+        const minutes = (Math.floor(totalSec / 6) / 10).toFixed(1).replace('.', ',');
+        return `${minutes} мин.`;
+    }
+    return `${(totalSec / 3600).toFixed(1).replace('.', ',')} ч.`;
+}
+
+function renderTotalTime() {
+    const el = document.getElementById('total-time-value');
+    if (el) el.textContent = formatTotalDuration(totalElapsedMs);
+}
+
+// Прибавляет завершённый прогон к общему времени и сохраняет на диск.
+function addTotalElapsed(ms) {
+    if (ms === null || ms === undefined || ms <= 0) return;
+    totalElapsedMs += ms;
+    renderTotalTime();
+    try {
+        const p = window.pywebview.api.save_total_time(totalElapsedMs);
+        if (p && p.catch) p.catch(e => console.error('[total-time] не сохранено:', e));
+    } catch (e) {
+        console.error('[total-time] не сохранено:', e);
+    }
+}
+
+function resetTotalTime() {
+    totalElapsedMs = 0;
+    renderTotalTime();
+    try {
+        const p = window.pywebview.api.save_total_time(0);
+        if (p && p.catch) p.catch(e => console.error('[total-time] не сброшено:', e));
+    } catch (e) {
+        console.error('[total-time] не сброшено:', e);
+    }
+    showToast('Общий таймер сброшен', 'success');
+}
+
+async function loadTotalTime() {
+    try {
+        const res = await window.pywebview.api.get_total_time();
+        totalElapsedMs = (res && res.total_ms) ? Number(res.total_ms) || 0 : 0;
+    } catch (e) {
+        console.error('[total-time] не загружено:', e);
+        totalElapsedMs = 0;
+    }
+    renderTotalTime();
 }
 
 function scriptFinished(key, code, wasStopped) {
@@ -1446,7 +1502,10 @@ function scriptFinished(key, code, wasStopped) {
     const service = dashIdx === -1 ? scriptId : scriptId.slice(0, dashIdx);
     const script = dashIdx === -1 ? '' : scriptId.slice(dashIdx + 1);
     const statusEl = document.getElementById(`${scriptId}-status`);
-    const elapsed = elapsedFor(scriptId);
+    const elapsedMs = elapsedMsFor(scriptId);
+    const elapsed = elapsedMs === null ? '' : ` за ${formatDuration(elapsedMs)}`;
+    // Одна строка на все исходы: успех, ошибка, остановка, дневной лимит.
+    addTotalElapsed(elapsedMs);
     delete scriptStartTimes[scriptId];
 
     // Код 100 = дневной лимит исчерпан (ThrottleUser)
