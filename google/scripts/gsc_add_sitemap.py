@@ -79,17 +79,18 @@ def health_label(health):
     return "✅ Успешно"
 
 
-def submit_sitemap(webmasters, site_url, sitemap_url, progress):
+def submit_sitemap(svc, site_url, sitemap_url, limiter):
     """Возвращает ('ok'|'already'|'error', err). При квоте — ретраи."""
     last_err = None
     for attempt in range(1, QUOTA_RETRIES + 1):
         try:
-            webmasters.sitemaps().submit(siteUrl=site_url, feedpath=sitemap_url).execute()
+            limiter.acquire()
+            svc.sitemaps().submit(siteUrl=site_url, feedpath=sitemap_url).execute()
             return 'ok', None
         except Exception as e:
             last_err = gsc_client.api_error_str(e)
             if is_quota_error(e) and attempt < QUOTA_RETRIES:
-                print(f"⏳  Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES}) | Обработка сайтов - {progress}", flush=True)
+                print(f"⏳  Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES}) | {site_url}", flush=True)
                 time.sleep(QUOTA_WAIT)
                 continue
             break
@@ -146,64 +147,72 @@ def main():
     total = len(targets)
     print(f"ℹ️  Сайтов обрабатывается: {total}")
 
-    success = pending = errors = 0
-    domains = 0
-    processed = 0
+    limiter = gsc_client.rate_limiter()
+    if total > 1:
+        print(f"ℹ️  Распараллеливание: потоков x{gsc_client.MAX_WORKERS}, "
+              f"темп ~{gsc_client.RATE_LIMIT_RPS:.0f} запр./сек (квота Google — 20 QPS)")
 
-    for site_url, entry in targets:
-        processed += 1
-        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
+    def process(target, _idx=0):
+        """Один сайт: (cells, stats). Запросы — потоковый webmasters + общий лимитер."""
+        site_url, entry = target
+        svc = gsc_client.thread_webmasters()
+        stats = {"success": 0, "pending": 0, "errors": 0, "domains": 0}
 
         if entry is None:
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "❌ Не добавлен в GSC"]}, ensure_ascii=False)}')
-            continue
+            stats["errors"] = 1
+            return [site_url, "—", "❌ Не добавлен в GSC"], stats
 
         level = entry.get('permissionLevel', '')
         if level == 'siteUnverifiedUser':
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "❌ Не подтверждён"]}, ensure_ascii=False)}')
-            continue
+            stats["errors"] = 1
+            return [site_url, "—", "❌ Не подтверждён"], stats
 
         if site_url.lower().startswith('sc-domain:'):
-            domains += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "ℹ️ Доменный ресурс"]}, ensure_ascii=False)}')
-            continue
+            stats["domains"] = 1
+            return [site_url, "—", "ℹ️ Доменный ресурс"], stats
 
         sitemap_url = f"{site_url.rstrip('/')}{sitemap_path}"
 
         try:
-            sm_res = webmasters.sitemaps().list(siteUrl=site_url).execute()
+            limiter.acquire()
+            sm_res = svc.sitemaps().list(siteUrl=site_url).execute()
         except Exception as e:
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, f"❌ {gsc_client.api_error_str(e)}"]}, ensure_ascii=False)}')
-            continue
+            stats["errors"] = 1
+            return [site_url, sitemap_url, f"❌ {gsc_client.api_error_str(e)}"], stats
 
         existing = [sm for sm in sm_res.get('sitemap', []) if (sm.get('path') or '') == sitemap_url]
         if existing:
             health = sitemap_health(existing[0])
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, health_label(health)]}, ensure_ascii=False)}')
             if health == 'ok':
-                success += 1
+                stats["success"] = 1
             elif health == 'pending':
-                pending += 1
+                stats["pending"] = 1
             else:
-                errors += 1
-            continue
+                stats["errors"] = 1
+            return [site_url, sitemap_url, health_label(health)], stats
 
-        status, err = submit_sitemap(
-            webmasters, site_url, sitemap_url,
-            f"{processed}/{total} ({round(processed / total * 100)}%)"
-        )
+        status, err = submit_sitemap(svc, site_url, sitemap_url, limiter)
         if status == 'ok':
-            success += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, "✅ Добавлен"]}, ensure_ascii=False)}')
-        elif status == 'already':
-            success += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, "⭐ Добавлен ранее"]}, ensure_ascii=False)}')
-        else:
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, f"❌ {err}"]}, ensure_ascii=False)}')
+            stats["success"] = 1
+            return [site_url, sitemap_url, "✅ Добавлен"], stats
+        if status == 'already':
+            stats["success"] = 1
+            return [site_url, sitemap_url, "⭐ Добавлен ранее"], stats
+        stats["errors"] = 1
+        return [site_url, sitemap_url, f"❌ {err}"], stats
+
+    success = pending = errors = 0
+    domains = 0
+    processed = 0
+
+    for _idx, (cells, stats) in gsc_client.run_parallel(targets, process):
+        processed += 1
+        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
+        print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
+        success += stats["success"]
+        pending += stats["pending"]
+        errors += stats["errors"]
+        domains += stats["domains"]
 
     summary = {
         "Сайтов": total,

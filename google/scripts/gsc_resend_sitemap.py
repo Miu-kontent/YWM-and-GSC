@@ -41,18 +41,19 @@ def is_quota_error(e):
         return False
 
 
-def api_call(build_fn, progress):
+def api_call(build_fn, site_url, limiter):
     """Выполняет API-запрос (build_fn() возвращает request) с ретраями при квоте.
     Возвращает ('ok', None) | ('err', str)."""
     last_err = None
     for attempt in range(1, QUOTA_RETRIES + 1):
         try:
+            limiter.acquire()
             build_fn().execute()
             return 'ok', None
         except Exception as e:
             last_err = gsc_client.api_error_str(e)
             if is_quota_error(e) and attempt < QUOTA_RETRIES:
-                print(f"⏳  Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES}) | Обработка сайтов - {progress}", flush=True)
+                print(f"⏳  Лимит запросов, ждём {QUOTA_WAIT} сек... (попытка {attempt}/{QUOTA_RETRIES}) | {site_url}", flush=True)
                 time.sleep(QUOTA_WAIT)
                 continue
             break
@@ -123,63 +124,69 @@ def main():
     total = len(targets)
     print(f"ℹ️  Сайтов обрабатывается: {total}")
 
+    limiter = gsc_client.rate_limiter()
+    if total > 1:
+        print(f"ℹ️  Распараллеливание: потоков x{gsc_client.MAX_WORKERS}, "
+              f"темп ~{gsc_client.RATE_LIMIT_RPS:.0f} запр./сек (квота Google — 20 QPS)")
+
+    def process(target, _idx=0):
+        """Один сайт: (cells, stats). Запросы — потоковый webmasters + общий лимитер."""
+        raw, site_url, entry = target
+        svc = gsc_client.thread_webmasters()
+        stats = {"success": 0, "errors": 0, "domains": 0}
+
+        if entry is None:
+            stats["errors"] = 1
+            return [raw, "—", "❌ Не добавлен в GSC"], stats
+
+        level = entry.get('permissionLevel', '')
+        if level == 'siteUnverifiedUser':
+            stats["errors"] = 1
+            return [site_url, "—", "❌ Не подтверждён"], stats
+
+        if site_url.lower().startswith('sc-domain:'):
+            stats["domains"] = 1
+            return [site_url, "—", "ℹ️ Доменный ресурс"], stats
+
+        sitemap_url = resolve_sitemap_url(site_url, raw, sitemap_path)
+        if not sitemap_url:
+            stats["errors"] = 1
+            return [site_url, "—", "❌ Пустой путь сайтмапа"], stats
+
+        if mode == 'delete_and_submit':
+            status, err = api_call(
+                lambda: svc.sitemaps().delete(siteUrl=site_url, feedpath=sitemap_url),
+                site_url, limiter
+            )
+            if status != 'ok' and err and 'notFound' not in err and '404' not in err:
+                stats["errors"] = 1
+                return [site_url, sitemap_url, f"❌ Удаление: {err}"], stats
+
+        status, err = api_call(
+            lambda: svc.sitemaps().submit(siteUrl=site_url, feedpath=sitemap_url),
+            site_url, limiter
+        )
+        if status == 'ok':
+            stats["success"] = 1
+            return [site_url, sitemap_url, "✅ Отправлен"], stats
+        low = (err or '').lower()
+        if 'already' in low or 'exists' in low:
+            stats["success"] = 1
+            return [site_url, sitemap_url, "⭐ Отправлен ранее"], stats
+        stats["errors"] = 1
+        return [site_url, sitemap_url, f"❌ {err}"], stats
+
     success = errors = 0
     domains = 0
     processed = 0
 
-    for raw, site_url, entry in targets:
+    for _idx, (cells, stats) in gsc_client.run_parallel(targets, process):
         processed += 1
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
-
-        if entry is None:
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [raw, "—", "❌ Не добавлен в GSC"]}, ensure_ascii=False)}')
-            continue
-
-        level = entry.get('permissionLevel', '')
-        if level == 'siteUnverifiedUser':
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "❌ Не подтверждён"]}, ensure_ascii=False)}')
-            continue
-
-        if site_url.lower().startswith('sc-domain:'):
-            domains += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "ℹ️ Доменный ресурс"]}, ensure_ascii=False)}')
-            continue
-
-        sitemap_url = resolve_sitemap_url(site_url, raw, sitemap_path)
-        if not sitemap_url:
-            errors += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, "—", "❌ Пустой путь сайтмапа"]}, ensure_ascii=False)}')
-            continue
-
-        site_base = site_url
-
-        if mode == 'delete_and_submit':
-            status, err = api_call(
-                lambda: webmasters.sitemaps().delete(siteUrl=site_base, feedpath=sitemap_url),
-                progress=f"{processed}/{total} ({round(processed / total * 100)}%)"
-            )
-            if status != 'ok' and err and 'notFound' not in err and '404' not in err:
-                errors += 1
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, f"❌ Удаление: {err}"]}, ensure_ascii=False)}')
-                continue
-
-        status, err = api_call(
-            lambda: webmasters.sitemaps().submit(siteUrl=site_base, feedpath=sitemap_url),
-            progress=f"{processed}/{total} ({round(processed / total * 100)}%)"
-        )
-        if status == 'ok':
-            success += 1
-            print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, "✅ Отправлен"]}, ensure_ascii=False)}')
-        else:
-            low = (err or '').lower()
-            if 'already' in low or 'exists' in low:
-                success += 1
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, "⭐ Отправлен ранее"]}, ensure_ascii=False)}')
-            else:
-                errors += 1
-                print(f'__TABLE_ROW__:{json.dumps({"cells": [site_url, sitemap_url, f"❌ {err}"]}, ensure_ascii=False)}')
+        print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
+        success += stats["success"]
+        errors += stats["errors"]
+        domains += stats["domains"]
 
     summary = {
         "Сайтов": total,
