@@ -66,17 +66,6 @@ def normalize_path(path):
     return path
 
 
-def build_site_url(raw):
-    """Формат для API: http://host (без пути)."""
-    url = (raw or '').strip()
-    if not url:
-        return None
-    if '://' not in url:
-        url = 'https://' + url
-    host = url.split('://', 1)[1].split('/')[0].split('?')[0]
-    return f"http://{host}"
-
-
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
@@ -109,12 +98,8 @@ def main():
     if links:
         targets = []
         for raw in links:
-            site_url = build_site_url(raw)
-            if not site_url:
-                targets.append((raw, None))
-                continue
-            match = next((s for s in all_sites if bc.host_of(s.get("Url")) == bc.host_of(site_url)), None)
-            targets.append((site_url, match))
+            match = next((s for s in all_sites if bc.host_of(s.get("Url")) == bc.host_of(raw)), None)
+            targets.append((raw, match))
     else:
         targets = [(s.get("Url", ""), s) for s in all_sites if s.get("Url")]
 
@@ -132,6 +117,10 @@ def main():
             errors += 1
             table_row([site_url, "—", "❌ Не найден в Bing"])
             continue
+
+        # Работаем с адресом, который отдаёт Bing (со схемой и слешем): собранный
+        # из ввода http://host API не узнаёт, и существующий фид не находится.
+        site_url = (site_info.get("Url") or site_url).strip()
 
         verified = bool(site_info.get("IsVerified"))
         if not verified:

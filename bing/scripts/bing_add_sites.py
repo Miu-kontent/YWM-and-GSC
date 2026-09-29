@@ -65,20 +65,33 @@ def normalize_host(url):
     return host.lower()
 
 
+def scheme_of(raw):
+    """Схема из ввода пользователя; для голого домена — https."""
+    url = (raw or '').strip()
+    if '://' not in url:
+        return 'https'
+    return url.split('://', 1)[0].strip().lower() or 'https'
+
+
 def build_site_url(raw):
-    """Формат для AddSite: http://host (как в примере Bing: http://example.com)."""
+    """Адрес для AddSite: хост + схема из ввода, со слешем.
+
+    Bing хранит свойства именно в таком виде (https://host/), а собранный из
+    ввода http://host API не узнаёт — поэтому по умолчанию https, а не http.
+    """
     host = normalize_host(raw)
     if not host:
         return None
-    return f"http://{host}"
+    return f"{scheme_of(raw)}://{host}/"
 
 
-def build_site_url_https(raw):
-    """Резервный формат: https://host (без слеша)."""
+def build_site_url_alt(raw):
+    """Запасная схема — если добавление с основной вернуло ошибку."""
     host = normalize_host(raw)
     if not host:
         return None
-    return f"https://{host}"
+    other = 'http' if scheme_of(raw) == 'https' else 'https'
+    return f"{other}://{host}/"
 
 
 def is_already_exists_error(error_str):
@@ -127,8 +140,8 @@ def main():
 
     for raw in links:
         processed += 1
-        site_url = build_site_url(raw)      # пробуем http://host
-        site_url_https = build_site_url_https(raw)  # запасной https://host
+        site_url = build_site_url(raw)      # протокол из ввода, для голого домена https
+        site_url_alt = build_site_url_alt(raw)   # запасная схема
         if not site_url:
             errors += 1
             print(f'__TABLE_ROW__:{json.dumps({"cells": [raw, "❌ Неверный формат"]}, ensure_ascii=False)}')
@@ -165,9 +178,9 @@ def main():
                 existing_hosts.add(host)
                 table_row([site_url, "ℹ️ Добавлен ранее (по ошибке API)"])
                 continue
-            # Иначе пробуем https://host
-            print(f"ℹ️  http не сработал, пробуем https: {site_url_https}", flush=True)
-            ok, data_add, error = bc.call("AddSite", body={"siteUrl": site_url_https})
+            # Иначе пробуем другую схему
+            print(f"ℹ️  {site_url} не сработал, пробуем {site_url_alt}", flush=True)
+            ok, data_add, error = bc.call("AddSite", body={"siteUrl": site_url_alt})
             if not ok:
                 err = (error or '').lower()
                 if 'throttleuser' in err or 'errorcode 4' in err or 'errorcode=4' in err:
@@ -185,12 +198,12 @@ def main():
                 if is_already_exists_error(error):
                     earlier += 1
                     existing_hosts.add(host)
-                    table_row([site_url_https, "ℹ️ Добавлен ранее (по ошибке API)"])
+                    table_row([site_url_alt, "ℹ️ Добавлен ранее (по ошибке API)"])
                     continue
                 errors += 1
-                table_row([site_url_https, f"❌ {error}"])
+                table_row([site_url_alt, f"❌ {error}"])
                 continue
-            site_url = site_url_https  # успех на https
+            site_url = site_url_alt  # успех на второй схеме
 
         # Успех
         existing_hosts.add(host)

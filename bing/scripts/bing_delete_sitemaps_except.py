@@ -71,17 +71,6 @@ def normalize_keep_paths(paths):
     return out
 
 
-def build_site_url(raw):
-    """Формат для API: http://host (без пути)."""
-    url = (raw or '').strip()
-    if not url:
-        return None
-    if '://' not in url:
-        url = 'https://' + url
-    host = url.split('://', 1)[1].split('/')[0].split('?')[0]
-    return f"http://{host}"
-
-
 def extract_path(url):
     """Извлекает путь из URL (все после хоста)."""
     if not url:
@@ -141,13 +130,14 @@ def main():
     all_sites = as_list(data_sites)
 
     targets = []
+    seen_hosts = set()
     for raw in links:
-        site_url = build_site_url(raw)
-        if not site_url:
-            targets.append((raw, None))
+        host = bc.host_of(raw)
+        if not host or host in seen_hosts:   # один домен не обрабатываем дважды
             continue
-        match = next((s for s in all_sites if bc.host_of(s.get("Url")) == bc.host_of(site_url)), None)
-        targets.append((site_url, match))
+        seen_hosts.add(host)
+        match = next((s for s in all_sites if bc.host_of(s.get("Url")) == host), None)
+        targets.append((raw, match))
 
     total = len(targets)
     print(f"ℹ️  Сайтов обрабатывается: {total}")
@@ -163,6 +153,10 @@ def main():
             errors += 1
             table_row([site_url, "—", "❌ Не найден в Bing"])
             continue
+
+        # Адрес берём из GetUserSites: пересобранный из ввода http://host
+        # API не узнаёт, и фиды такого сайта не найдутся.
+        site_url = (site_info.get("Url") or site_url).strip()
 
         verified = bool(site_info.get("IsVerified"))
         if not verified:

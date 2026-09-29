@@ -52,17 +52,6 @@ def table_row(cells):
     print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}', flush=True)
 
 
-def build_site_url(raw):
-    """Формат для API: http://host (без пути)."""
-    url = (raw or '').strip()
-    if not url:
-        return None
-    if '://' not in url:
-        url = 'https://' + url
-    host = url.split('://', 1)[1].split('/')[0].split('?')[0]
-    return f"http://{host}"
-
-
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     sys.stderr.reconfigure(encoding='utf-8')
@@ -88,27 +77,22 @@ def main():
     if links:
         targets = []
         for raw in links:
-            site_url = build_site_url(raw)
-            if not site_url:
-                targets.append(('bad', raw))
-                continue
-            match = next((s for s in all_sites if bc.host_of(s.get("Url")) == bc.host_of(site_url)), None)
+            match = next((s for s in all_sites if bc.host_of(s.get("Url")) == bc.host_of(raw)), None)
             if match is None:
-                targets.append(('not_added', site_url))
-            elif match.get("IsVerified"):
-                targets.append(('verified', site_url))
+                targets.append(('not_added', raw))
             else:
-                targets.append(('unverified', site_url))
+                # VerifySite ждёт адрес, под которым сайт лежит в Bing (со схемой
+                # и слешем) — пересобранный из ввода http://host не сработает.
+                site_url = (match.get("Url") or raw).strip()
+                kind = 'verified' if match.get("IsVerified") else 'unverified'
+                targets.append((kind, site_url))
     else:
         targets = []
         for s in all_sites:
-            site_url = s.get("Url", "")
+            site_url = (s.get("Url") or "").strip()
             if not site_url:
                 continue
-            if s.get("IsVerified"):
-                targets.append(('verified', site_url))
-            else:
-                targets.append(('unverified', site_url))
+            targets.append(('verified' if s.get("IsVerified") else 'unverified', site_url))
         print(f"ℹ️  Режим: все сайты из аккаунта ({len(targets)})")
 
     total = len(targets)
@@ -123,10 +107,6 @@ def main():
         processed += 1
         print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
 
-        if kind == 'bad':
-            errors += 1
-            table_row([site_url, "❌ Неверный формат"])
-            continue
         if kind == 'not_added':
             errors += 1
             table_row([site_url, "❌ Не добавлен в Bing"])
