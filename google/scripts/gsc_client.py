@@ -14,6 +14,9 @@ google-api-python-client (webmasters v3 + siteVerification v1 + searchconsole v1
 import datetime
 import json
 import os
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlparse
 
 SCOPES = [
@@ -223,6 +226,8 @@ def get_credentials():
         acc["token_expiry"] = int(creds.expiry.timestamp()) if creds.expiry else None
         save_accounts(accounts)
 
+    global _last_credentials
+    _last_credentials = creds
     return creds, email
 
 
@@ -244,3 +249,153 @@ def build_services():
         return webmasters, site_verification, searchconsole, info
     except Exception as e:
         return None, None, None, f"Ошибка создания сервисов Google API: {e}"
+
+
+# ======================== ПАРАЛЛЕЛЬНЫЙ ПРОГОН ========================
+
+# Потолок задаёт квота Google на пользователя: 20 QPS для webmasters v3
+# («all other resources»: sites.list, sitemaps.list). Выше этого распараллеливание
+# упирается в квоту, а не в сеть, поэтому темп держим ниже, а число потоков скромное.
+MAX_WORKERS = 5        # потоков по умолчанию
+RATE_LIMIT_RPS = 15.0  # ограничитель темпа запросов (на все потоки сразу)
+RATE_RETRIES = 3       # ретраи на 429/403 по квоте частоты
+RATE_BACKOFF = 3.0     # пауза перед первым ретраем, далее x2
+
+# Креды активного аккаунта — для поточных сервисов (заполняется get_credentials()).
+_last_credentials = None
+
+# Отдельный webmasters-сервис на поток: httplib2 не потокобезопасен и держит
+# одно соединение на хост (conn_key = scheme + ':' + authority), поэтому общий
+# сервис схлопнул бы все потоки в одно keep-alive соединение.
+_local = threading.local()
+
+
+class _RateLimiter:
+    """Ограничитель темпа запросов, общий для потоков (token-bucket под Lock)."""
+
+    def __init__(self, rps):
+        self._interval = 1.0 / rps if rps and rps > 0 else 0.0
+        self._lock = threading.Lock()
+        self._next_at = 0.0
+
+    def acquire(self):
+        if self._interval <= 0:
+            return
+        with self._lock:
+            now = time.monotonic()
+            wait = self._next_at - now
+            self._next_at = max(now, self._next_at) + self._interval
+        if wait > 0:
+            time.sleep(wait)
+
+
+def rate_limiter(rps=None):
+    """Ограничитель темпа. rps=None → RATE_LIMIT_RPS; rps<=0 → без ограничения."""
+    return _RateLimiter(RATE_LIMIT_RPS if rps is None else rps)
+
+
+def thread_webmasters():
+    """Свой webmasters-сервис на поток вызывающего (см. комментарий к _local)."""
+    global _last_credentials
+    creds = _last_credentials
+    if creds is None:
+        creds, info = get_credentials()
+        if creds is None:
+            raise RuntimeError(info)
+    svc = getattr(_local, "webmasters", None)
+    if svc is None:
+        from googleapiclient.discovery import build
+        svc = build("webmasters", "v3", credentials=creds, cache_discovery=False)
+        _local.webmasters = svc
+    return svc
+
+
+def rate_limit_reason(e):
+    """Поле reason из тела ошибки Google ('' — разобрать не удалось)."""
+    try:
+        from googleapiclient.errors import HttpError
+        if not isinstance(e, HttpError):
+            return ""
+        data = json.loads(e.content.decode("utf-8"))
+        err = data.get("error", {}) or {}
+        for item in (err.get("errors") or []):
+            if item.get("reason"):
+                return item["reason"]
+        return err.get("status") or ""
+    except Exception:
+        return ""
+
+
+def is_rate_limit_error(e):
+    """429 — всегда; 403 — только по квоте частоты.
+
+    quotaExceeded сюда НЕ входит: это дневная квота / лимит сайтов, ретрай бесполезен
+    (то же, что is_limit_error в gsc_add_sites.py).
+    """
+    try:
+        from googleapiclient.errors import HttpError
+        if not isinstance(e, HttpError):
+            return False
+        status = int(e.resp.status)
+        if status == 429:
+            return True
+        if status == 403:
+            return rate_limit_reason(e) in ("rateLimitExceeded", "userRateLimitExceeded")
+        return False
+    except Exception:
+        return False
+
+
+def retry_on_quota(func, limiter=None, retries=None):
+    """Вызов API с ограничением темпа и ретраями на 429/403 по квоте частоты.
+
+    func() — замыкание без аргументов (сам запрос). Ошибка, которая не является
+    ошибкой частоты, пробрасывается сразу.
+    """
+    limiter = limiter or rate_limiter()
+    retries = RATE_RETRIES if retries is None else retries
+    wait = RATE_BACKOFF
+    for attempt in range(1, retries + 1):
+        limiter.acquire()
+        try:
+            return func()
+        except Exception as e:
+            if attempt >= retries or not is_rate_limit_error(e):
+                raise
+            reason = rate_limit_reason(e) or "rate limit"
+            print(f"⏳ Лимит запросов Google ({reason}), ждём {wait:.0f} сек... "
+                  f"(попытка {attempt}/{retries})", flush=True)
+            time.sleep(wait)
+            wait *= 2
+
+
+def run_parallel(items, worker, max_workers=None):
+    """Параллельный вызов worker(item, idx) с выдачей результатов в порядке items.
+
+    worker(item, idx) выполняется в пуле потоков, а отдача (idx, результат) идёт
+    строго в порядке входа — печать __TABLE_ROW__ остаётся в главном потоке, и
+    порядок строк отчёта не «плывёт». Исключения из worker пробрасываются
+    в вызывающий поток (future.result()).
+
+    max_workers=None → MAX_WORKERS; 1 → обычный последовательный цикл без пула.
+    """
+    items = list(items)
+    total = len(items)
+    if total == 0:
+        return
+
+    workers = MAX_WORKERS if max_workers is None else max(1, int(max_workers))
+    if workers == 1 or total == 1:
+        for idx, item in enumerate(items):
+            yield idx, worker(item, idx)
+        return
+
+    results = {}
+    next_idx = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(worker, item, idx): idx for idx, item in enumerate(items)}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+            while next_idx in results:
+                yield next_idx, results.pop(next_idx)
+                next_idx += 1

@@ -506,6 +506,7 @@ class Api:
             chrome_path,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={profile_path}",
+            "--profile-directory=Default",
             "--no-first-run",
             "--no-default-browser-check",
             "--remote-allow-origins=*"
@@ -709,6 +710,10 @@ class Api:
                 timeout=5,
             )
             if resp.status_code != 200:
+                if resp.status_code == 500:
+                    raise RuntimeError(
+                        f"Chrome на порту {port} не открыл вкладку (окно выбора профиля). "
+                        "Закройте браузер и запустите заново кнопкой «Браузер»")
                 raise RuntimeError(f"CDP ответил HTTP {resp.status_code}")
             return resp.json()
         except Exception as e:

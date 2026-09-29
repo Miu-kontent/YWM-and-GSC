@@ -112,57 +112,65 @@ def main():
     if not sitemap_path.startswith('/'):
         sitemap_path = '/' + sitemap_path
 
-    unverified = no_correct = wrong_sites = correct_bad = 0
-    processed = 0
+    limiter = gsc_client.rate_limiter()
 
-    for s in sites:
-        processed += 1
-        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
-        site_url = s.get('siteUrl', '')
-        level = s.get('permissionLevel', '')
-        rights = PERMISSION_LABELS.get(level, level)
-
-        cells = [site_url, rights]
+    def process_site(entry, _idx=0):
+        """Данные одного сайта: (cells, stats). Сетевой запрос — только при show_sitemaps."""
+        site_url = entry.get('siteUrl', '')
+        level = entry.get('permissionLevel', '')
+        cells = [site_url, PERMISSION_LABELS.get(level, level)]
+        stats = {"unverified": 0, "no_correct": 0, "wrong_sites": 0, "correct_bad": 0}
 
         if not show_sitemaps:
-            print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
-            continue
+            return cells, stats
 
-        is_unverified = (level == 'siteUnverifiedUser')
-        if is_unverified:
-            unverified += 1
-            cells += [["—"], ["—"]]
-            print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
-            continue
+        if level == 'siteUnverifiedUser':
+            stats["unverified"] = 1
+            return cells + [["—"], ["—"]], stats
 
         try:
-            sm_res = webmasters.sitemaps().list(siteUrl=site_url).execute()
+            sm_res = gsc_client.retry_on_quota(
+                lambda: gsc_client.thread_webmasters().sitemaps().list(siteUrl=site_url).execute(),
+                limiter)
         except Exception as e:
-            cells += [["—"], [f"❌ {gsc_client.api_error_str(e)}"]]
-            print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
-            continue
+            return cells + [["—"], [f"❌ {gsc_client.api_error_str(e)}"]], stats
 
         sitemaps = sm_res.get('sitemap', [])
         expected = f"{site_url.rstrip('/')}{sitemap_path}"
 
+        if not sitemaps:
+            stats["no_correct"] = 1
+            return cells + [["—"], ["—"]], stats
+
+        correct_maps = [sm for sm in sitemaps if (sm.get('path') or '') == expected]
+        if not correct_maps:
+            stats["no_correct"] = 1
+        if any((sm.get('path') or '') != expected for sm in sitemaps):
+            stats["wrong_sites"] = 1
+        if any(sitemap_status(sm) != 'ok' for sm in correct_maps):
+            stats["correct_bad"] = 1
+
         paths = [sm.get('path', '') or '?' for sm in sitemaps]
         statuses = [sitemap_status_label(sm, expected) for sm in sitemaps]
+        return cells + [paths, statuses], stats
 
-        if not sitemaps:
-            no_correct += 1
-            paths, statuses = ["—"], ["—"]
-        else:
-            correct_maps = [sm for sm in sitemaps if (sm.get('path') or '') == expected]
-            wrong_maps = [sm for sm in sitemaps if (sm.get('path') or '') != expected]
-            if not correct_maps:
-                no_correct += 1
-            if wrong_maps:
-                wrong_sites += 1
-            if any(sitemap_status(sm) != 'ok' for sm in correct_maps):
-                correct_bad += 1
+    # Без чекбокса «Сайтмапы» запросов на сайт нет — пул не создаём.
+    workers = 1 if not show_sitemaps else None
+    if show_sitemaps and total > 1:
+        print(f"ℹ️  Распараллеливание: потоков x{gsc_client.MAX_WORKERS}, "
+              f"темп ~{gsc_client.RATE_LIMIT_RPS:.0f} запр./сек (квота Google — 20 QPS)")
 
-        cells += [paths, statuses]
+    unverified = no_correct = wrong_sites = correct_bad = 0
+    processed = 0
+
+    for _idx, (cells, stats) in gsc_client.run_parallel(sites, process_site, max_workers=workers):
+        processed += 1
         print(f'__TABLE_ROW__:{json.dumps({"cells": cells}, ensure_ascii=False)}')
+        print(f"ℹ️  Обработка сайтов - {processed}/{total} ({round(processed / total * 100)}%)")
+        unverified += stats["unverified"]
+        no_correct += stats["no_correct"]
+        wrong_sites += stats["wrong_sites"]
+        correct_bad += stats["correct_bad"]
 
     summary = {"Сайтов": total, "Не подтверждённых": unverified}
     if show_sitemaps:
